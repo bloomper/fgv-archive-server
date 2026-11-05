@@ -1,0 +1,8 @@
+logging:
+  file:
+    path: ./build/integrationtest-data/log_data
+
+archive:
+  # The tests process files themselves, with FileProcessor.processPending()
+  worker:
+    enabled: false

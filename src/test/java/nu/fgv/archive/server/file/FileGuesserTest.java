@@ -95,6 +95,9 @@ class FileGuesserTest {
     void aPartForSeveralInstrumentsCarriesThemAll() {
         assertThat(guess("Trumpet 1-2.pdf", MaterialKind.ARRANGEMENT).instruments()).extracting(Instrument::getNameSv).containsExactly("Trumpet");
         assertThat(guess("Trumpet 1-2.pdf", MaterialKind.ARRANGEMENT).desk()).isEqualTo("1–2");
+        assertThat(guess("Trumpet 1 & 2.pdf", MaterialKind.ARRANGEMENT).desk()).isEqualTo("1–2");
+        assertThat(guess("Trumpet 1 och 2.pdf", MaterialKind.ARRANGEMENT).desk()).isEqualTo("1–2");
+        assertThat(guess("Trumpet 1+2.pdf", MaterialKind.ARRANGEMENT).desk()).isEqualTo("1–2");
         assertThat(guess("Tp1.pdf", MaterialKind.ARRANGEMENT).desk()).isEqualTo("1");
         assertThat(guess("Flöjt & Piccolo.pdf", MaterialKind.ARRANGEMENT).instruments()).extracting(Instrument::getNameSv)
                 .containsExactly("Flöjt", "Piccolaflöjt");

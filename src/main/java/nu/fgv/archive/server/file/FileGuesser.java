@@ -55,7 +55,7 @@ public final class FileGuesser {
      * What separates the instruments of a part shared by several: "Flöjt &amp; Piccolo", "Alt/Tenor sax", "Fl + Picc".
      */
     private static final Pattern SEPARATORS = Pattern.compile("\\s*(?:/|&|\\+|,|\\soch\\s|\\sand\\s)\\s*");
-    private static final Pattern DESK_RANGE = Pattern.compile("(?<![\\p{L}\\d])(\\d{1,2})\\s*[-–]\\s*(\\d{1,2})(?!\\d)");
+    private static final Pattern DESK_RANGE = Pattern.compile("(?<![\\p{L}\\d])(\\d{1,2})\\s*(?:[-–&+/]|och|and)\\s*(\\d{1,2})(?!\\d)", Pattern.CASE_INSENSITIVE);
     private static final Pattern DESK = Pattern.compile("(?<=[\\p{L}\\s_])(\\d{1,2})\\s*$");
 
     /**

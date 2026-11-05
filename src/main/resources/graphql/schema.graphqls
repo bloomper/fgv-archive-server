@@ -1,0 +1,782 @@
+scalar Instant
+scalar Void
+
+type Query {
+    "Anyone logged in. The caller and their roles."
+    me: Me!
+    "USER. The start page texts, the upload limit, the restriction defaults and the longest share link."
+    settings: Settings!
+    "USER. The categories of the spex, with how many spex each."
+    categories: [Category!]!
+    "USER. The years with spex, newest first."
+    years: [Int!]!
+    "USER. Original spex, newest first, each with its revivals; narrowed by the filter. A revival that matches brings its original."
+    spexList(filter: SpexFilter): [Spex!]!
+    "USER. A spex, an original or a revival."
+    spex(id: ID!): Spex
+    "USER. A number with its arrangement."
+    number(id: ID!): Number
+    "USER. A manuscript with a published version; any manuscript for EDITOR."
+    manuscript(id: ID!): Manuscript
+    "USER. An arrangement with a published version; any arrangement for EDITOR."
+    arrangement(id: ID!): Arrangement
+    "USER. A published version outside the trash; any version for EDITOR."
+    version(id: ID!): Version
+    "USER. A file of a version the caller sees. Its metadata is shown even when the caller may not open it (canOpen)."
+    file(id: ID!): File
+    "USER. The most recently added and changed published versions; every version for EDITOR."
+    recentVersions(limit: Int = 12): [Version!]!
+    """
+    USER. Spex, manuscripts, numbers and arrangements whose titles, authors, arrangers, original songs or credits match, and
+    pages of files whose text matches. Text hits are only in files the caller may open. With parts, arrangements and text
+    hits are narrowed to parts of those instruments or transpositions; with a key, arrangements to those with a version
+    in it, whatever the spelling, and versions lists the arrangement versions in it (q may then be empty).
+    """
+    search(q: String!, parts: PartFilter, key: KeyInput): SearchResult!
+    "USER. The file roles, in order."
+    fileRoles: [FileRole!]!
+    "USER. The instruments, in order."
+    instruments: [Instrument!]!
+    "USER. Guesses a file's role and instrument from its name, as an upload does."
+    fileGuess(versionId: ID!, name: String!): FileGuess!
+    "EDITOR. Original spex without a manuscript with a published version, newest first."
+    missingManuscripts(categoryId: ID): [Spex!]!
+    "EDITOR. Numbers without an arrangement with a published version, by spex, newest spex first."
+    missingArrangements(categoryId: ID): [Number!]!
+    "EDITOR. The caller's share links, newest first; with all, everyone's for ADMIN."
+    shareLinks(all: Boolean = false): [ShareLink!]!
+    """
+    Anyone, also without logging in. What a share link opens, by its token. Null when there is no such link; an expired
+    or revoked link answers with its status and who made it, and nothing else.
+    """
+    sharedView(token: String!): SharedView
+    "EDITOR. Requests for access to restricted files, newest first."
+    accessRequests: [AccessRequest!]!
+    "EDITOR. What is in the trash."
+    trash: Trash!
+    "ADMIN. Space used by files and previews, and left on the volume."
+    storage: Storage!
+    "EDITOR. The audit log, newest first: the caller's own changes, or everyone's for ADMIN, narrowed by the filter."
+    auditLog(page: Int = 0, size: Int = 50, filter: AuditFilter): AuditPage!
+    "EDITOR. Who made the changes in the audit log the caller sees, with their latest names; only the caller unless ADMIN."
+    auditActors: [AuditActor!]!
+    "ADMIN. The scheduled maintenance jobs, with their schedules and how their latest runs went."
+    maintenanceJobs: [MaintenanceJobStatus!]!
+}
+
+type Mutation {
+    "EDITOR. For an original spex; also creates its first version, Original, unpublished."
+    manuscriptCreate(input: ManuscriptInput!): Manuscript!
+    "EDITOR. The spex cannot be changed."
+    manuscriptUpdate(id: ID!, input: ManuscriptInput!): Manuscript!
+    "EDITOR. Takes its versions with it."
+    manuscriptTrash(id: ID!): Manuscript!
+    "EDITOR."
+    manuscriptRestore(id: ID!): Manuscript!
+    "ADMIN. Only a trashed manuscript; deletes its versions' files."
+    manuscriptDelete(id: ID!): Void
+    "EDITOR. For a number without an arrangement; also creates its first version, Original, unpublished."
+    arrangementCreate(input: ArrangementInput!): Arrangement!
+    "EDITOR. The number cannot be changed."
+    arrangementUpdate(id: ID!, input: ArrangementInput!): Arrangement!
+    "EDITOR. Takes its versions with it."
+    arrangementTrash(id: ID!): Arrangement!
+    "EDITOR."
+    arrangementRestore(id: ID!): Arrangement!
+    "ADMIN. Only a trashed arrangement; deletes its versions' files."
+    arrangementDelete(id: ID!): Void
+    "EDITOR. A new version of a manuscript or arrangement (parentId), unpublished, restricted as the settings say unless given."
+    versionCreate(parentId: ID!, input: VersionInput!): Version!
+    "EDITOR. Instrumentation is replaced when given; restricted is changed when given."
+    versionUpdate(id: ID!, input: VersionInput!): Version!
+    "EDITOR. A new unpublished version with the same fields and instrumentation, without files."
+    versionCopy(id: ID!): Version!
+    "EDITOR."
+    versionPublish(id: ID!, published: Boolean!): Version!
+    "EDITOR. At most one version of a manuscript or arrangement is recommended; recommending one takes it from the others."
+    versionRecommend(id: ID!, recommended: Boolean!): Version!
+    "EDITOR."
+    versionTrash(id: ID!): Version!
+    "EDITOR."
+    versionRestore(id: ID!): Version!
+    "ADMIN. Only a trashed version, or one in a trashed manuscript or arrangement; deletes its files."
+    versionDelete(id: ID!): Void
+    "EDITOR. Takes a finished upload as a new file of the version, last. The type is checked by content; the role and instrument are guessed from the name unless given."
+    fileAdd(input: FileAddInput!): File!
+    "EDITOR."
+    fileUpdate(id: ID!, input: FileInput!): File!
+    "EDITOR. Takes a finished upload as the file's new content; the type is checked again, the text and preview made again."
+    fileReplace(id: ID!, uploadId: String!): File!
+    "EDITOR. The files in the new order; files left out keep their order after them."
+    filesReorder(versionId: ID!, ids: [ID!]!): [File!]!
+    "EDITOR. Deletes the file for good."
+    fileDelete(id: ID!): Void
+    "EDITOR. Added last."
+    numberCreate(spexId: ID!, input: NumberInput!): Number!
+    "EDITOR."
+    numberUpdate(id: ID!, input: NumberInput!): Number!
+    "EDITOR. Only a number without an arrangement; merge one that has one."
+    numberDelete(id: ID!): Void
+    """
+    EDITOR. Adds numbers last, one per non-empty line: a title, optionally numbered ("3. Title"), with the original song
+    in parentheses ("Title (Melody)"), or tab-separated columns as pasted from a spreadsheet: title, original song,
+    lyricist, composer.
+    """
+    numbersPaste(spexId: ID!, text: String!): [Number!]!
+    "EDITOR. Every number of the spex in the new order."
+    numbersReorder(spexId: ID!, ids: [ID!]!): [Number!]!
+    """
+    EDITOR. Merges a number into another of the same spex and deletes it. Its arrangement moves to the other number, or,
+    when that has one too, its versions move into the other's arrangement.
+    """
+    numberMerge(id: ID!, intoId: ID!): Number!
+    "EDITOR. Shares the given versions (all their files) and files; expires after the given months, at most the settings' longest. The token is returned only here."
+    shareLinkCreate(input: ShareLinkInput!): CreatedShareLink!
+    "EDITOR, own links; ADMIN, any. Sets the expiry to the given months from now."
+    shareLinkExtend(id: ID!, months: Int!): ShareLink!
+    "EDITOR, own links; ADMIN, any."
+    shareLinkRevoke(id: ID!): ShareLink!
+    "USER. Asks the editors by email for access to restricted files."
+    accessRequestCreate(input: AccessRequestInput!): Void
+    "ADMIN. Added last."
+    fileRoleCreate(input: FileRoleInput!): FileRole!
+    "ADMIN."
+    fileRoleUpdate(id: ID!, input: FileRoleInput!): FileRole!
+    "ADMIN. Every role, in the new order."
+    fileRolesReorder(ids: [ID!]!): [FileRole!]!
+    "ADMIN. Only a role no file has, and not the last one."
+    fileRoleDelete(id: ID!): Void
+    "ADMIN. Added last in its group."
+    instrumentCreate(input: InstrumentInput!): Instrument!
+    "ADMIN."
+    instrumentUpdate(id: ID!, input: InstrumentInput!): Instrument!
+    "ADMIN. Every instrument, in the new order."
+    instrumentsReorder(ids: [ID!]!): [Instrument!]!
+    "ADMIN. Only an instrument that no file or instrumentation uses; merge one that is used."
+    instrumentDelete(id: ID!): Void
+    "ADMIN. Moves the instrument's files and instrumentation to another instrument, adding up counts, and deletes it."
+    instrumentMerge(id: ID!, intoId: ID!): Instrument!
+    "ADMIN. Deletes everything in the trash with its files."
+    trashEmpty: Void
+    "ADMIN."
+    settingsUpdate(input: SettingsInput!): Settings!
+    "ADMIN. Starts the job in the background, as its schedule would. False when it is already running."
+    maintenanceJobRun(job: MaintenanceJob!): Boolean!
+}
+
+type Me {
+    username: String!
+    displayName: String
+    roles: [String!]!
+}
+
+type Settings {
+    welcomeSv: String
+    welcomeEn: String
+    "The largest upload, in MB."
+    maxUploadMb: Int!
+    "Whether new manuscript versions start restricted."
+    manuscriptRestricted: Boolean!
+    "Whether new arrangement versions start restricted."
+    arrangementRestricted: Boolean!
+    "The longest a share link may last."
+    maxShareLinkMonths: Int!
+    "Who is told about access requests; empty for everyone with EDITOR. Only for ADMIN; empty for others."
+    accessRequestRecipients: [String!]!
+}
+
+input SettingsInput {
+    welcomeSv: String
+    welcomeEn: String
+    maxUploadMb: Int!
+    manuscriptRestricted: Boolean!
+    arrangementRestricted: Boolean!
+    maxShareLinkMonths: Int!
+    accessRequestRecipients: [String!]
+}
+
+type Category {
+    id: ID!
+    name: String!
+    spexCount: Int!
+}
+
+input SpexFilter {
+    categoryId: ID
+    year: Int
+    "Text the title contains, or the year."
+    q: String
+    "Only spex (and their revivals) with material the caller sees."
+    withMaterial: Boolean
+}
+
+"A spex, copied from Spexregister every night. A revival is a spex of its own, with its original as parent."
+type Spex {
+    id: ID!
+    title: String
+    year: Int
+    revival: Boolean!
+    "The original, for a revival."
+    parentId: ID
+    categoryId: ID
+    categoryName: String
+    "The original, for a revival."
+    original: Spex
+    "The revivals of an original, by year."
+    revivals: [Spex!]!
+    "The manuscripts of the spex' family (a revival shows its original's) the caller sees."
+    manuscripts: [Manuscript!]!
+    "The numbers in the order of the show: the spex' own, or its original's for a revival without any (numbersInherited)."
+    numbers: [Number!]!
+    "The arrangements of those numbers that the caller sees, in the order of the show; with a key or parts, only those with a version that matches."
+    arrangements(key: KeyInput, parts: PartFilter): [Arrangement!]!
+    numbersInherited: Boolean!
+    "How many manuscripts and arrangements of the spex' family the caller sees."
+    manuscriptCount: Int!
+    arrangementCount: Int!
+}
+
+"A song of a spex, kept by Spexarkivet's editors until Spexipedia takes the numbers over with the same ids."
+type Number {
+    id: ID!
+    spexId: ID!
+    spex: Spex!
+    position: Int!
+    title: String!
+    "The melody, e.g. Yesterday (The Beatles)."
+    originalSong: String
+    lyricist: String
+    composer: String
+    "The arrangement, when the caller sees it."
+    arrangement: Arrangement
+}
+
+input NumberInput {
+    title: String!
+    originalSong: String
+    lyricist: String
+    composer: String
+}
+
+type Manuscript {
+    id: ID!
+    spexId: ID!
+    spex: Spex!
+    title: String!
+    authors: String
+    description: String
+    trashed: Boolean!
+    createdAt: Instant!
+    "The versions the caller sees, the recommended one first, then the newest."
+    versions: [Version!]!
+}
+
+input ManuscriptInput {
+    "Only when creating: an original spex."
+    spexId: ID
+    "Defaults to the spex' title."
+    title: String
+    authors: String
+    description: String
+}
+
+type Arrangement {
+    id: ID!
+    numberId: ID!
+    number: Number!
+    description: String
+    trashed: Boolean!
+    createdAt: Instant!
+    "The versions the caller sees, the recommended one first, then the newest; with a key, those in it whatever the spelling; with parts, those with matching parts."
+    versions(key: KeyInput, parts: PartFilter): [Version!]!
+}
+
+input ArrangementInput {
+    "Only when creating."
+    numberId: ID
+    description: String
+}
+
+enum MaterialKind {
+    MANUSCRIPT
+    ARRANGEMENT
+}
+
+"One edition of a manuscript or arrangement. arranger, key, tempo, duration and instrumentation are an arrangement's only."
+type Version {
+    id: ID!
+    kind: MaterialKind!
+    "The manuscript's or arrangement's id."
+    parentId: ID!
+    manuscript: Manuscript
+    arrangement: Arrangement
+    label: String!
+    "The spex it was performed in: the original or one of its revivals."
+    usedInSpexId: ID
+    usedIn: Spex
+    "When it was finished, yyyy-mm-dd."
+    date: String
+    notes: String
+    arranger: String
+    "The concert key it sounds in."
+    key: Key
+    "The keys it modulates to, in order."
+    modulations: [Key!]!
+    tempo: String
+    duration: String
+    instrumentation: [InstrumentationEntry!]!
+    recommended: Boolean!
+    restricted: Boolean!
+    published: Boolean!
+    publishedAt: Instant
+    "Whether the version, or its manuscript or arrangement, is in the trash."
+    trashed: Boolean!
+    "Whether the caller may open and download the files: everyone for open versions, EDITOR for restricted ones."
+    canOpen: Boolean!
+    createdAt: Instant!
+    lastModifiedAt: Instant
+    "The files, in order. Listed with their names and roles even when the caller may not open them. With parts, only the parts of those instruments or transpositions."
+    files(parts: PartFilter): [File!]!
+}
+
+input VersionInput {
+    label: String!
+    usedInSpexId: ID
+    "yyyy-mm-dd"
+    date: String
+    notes: String
+    arranger: String
+    "Arrangements only."
+    key: KeyInput
+    "Replaces the modulations when given; arrangements only."
+    modulations: [KeyInput!]
+    tempo: String
+    duration: String
+    "Replaces the instrumentation when given; arrangements only."
+    instrumentation: [InstrumentationInput!]
+    "Changes whether the version is restricted when given."
+    restricted: Boolean
+}
+
+type InstrumentationEntry {
+    instrument: Instrument!
+    count: Int!
+}
+
+input InstrumentationInput {
+    instrumentId: ID!
+    count: Int!
+}
+
+enum ProcessingStatus {
+    "Waiting for its page count, text and preview."
+    PENDING
+    DONE
+    FAILED
+}
+
+type File {
+    id: ID!
+    versionId: ID!
+    title: String!
+    comment: String
+    "The name it was uploaded with."
+    name: String!
+    extension: String!
+    "The type detected from the content."
+    contentType: String!
+    size: Float!
+    "SHA-256, hex."
+    checksum: String!
+    pages: Int
+    position: Int!
+    role: FileRole!
+    "The instruments it carries, in order; a part carries at least one, e.g. trumpet for trumpet 1–2, or flute and piccolo."
+    instruments: [Instrument!]!
+    "Which desk or voice a part is, e.g. 1 or 1–2."
+    desk: String
+    "The pitch a part is written in; null for files without one."
+    transposition: Transposition
+    processing: ProcessingStatus!
+    "Whether /api/files/{id}/preview has a first-page preview."
+    hasPreview: Boolean!
+    "Whether the file's text is searchable."
+    hasText: Boolean!
+    "Whether the caller may open and download it."
+    canOpen: Boolean!
+    "How often it was downloaded; only for EDITOR."
+    downloadCount: Int
+    createdAt: Instant!
+}
+
+input FileAddInput {
+    versionId: ID!
+    uploadId: String!
+    "Defaults to the upload's name without its extension."
+    title: String
+    comment: String
+    "With roleId, the role is not guessed: instruments, desk and transposition are as given."
+    roleId: ID
+    instrumentIds: [ID!]
+    desk: String
+    "Defaults to the first instrument's default transposition."
+    transposition: TranspositionInput
+}
+
+input FileInput {
+    title: String!
+    comment: String
+    roleId: ID!
+    "A part needs at least one."
+    instrumentIds: [ID!]
+    desk: String
+    "Defaults to the first instrument's default transposition."
+    transposition: TranspositionInput
+}
+
+type FileGuess {
+    role: FileRole!
+    "Every instrument the name names, e.g. two for Alt/Tenor sax."
+    instruments: [Instrument!]!
+    desk: String
+    "The pitch the name gives, e.g. in Bb, B (Swedish B flat), H, Ess or F, else the first instrument's default."
+    transposition: Transposition
+    title: String!
+}
+
+"What a file is in its version, e.g. the score or a part. Configured by admins."
+type FileRole {
+    id: ID!
+    nameSv: String!
+    nameEn: String!
+    position: Int!
+    "How many files have it."
+    fileCount: Int!
+}
+
+input FileRoleInput {
+    nameSv: String!
+    nameEn: String!
+}
+
+enum InstrumentGroup {
+    WOODWIND
+    BRASS
+    RHYTHM
+    STRINGS
+    VOICES
+    OTHER
+}
+
+type Instrument {
+    id: ID!
+    nameSv: String!
+    nameEn: String!
+    group: InstrumentGroup!
+    "Other names and abbreviations that recognise the instrument in file names."
+    abbreviations: [String!]!
+    "The transposition a new part for the instrument gets."
+    defaultTransposition: Transposition!
+    position: Int!
+    "How many files and instrumentation entries use it."
+    useCount: Int!
+}
+
+input InstrumentInput {
+    nameSv: String!
+    nameEn: String!
+    group: InstrumentGroup!
+    abbreviations: [String!]
+    "Unchanged when not given; C for new instruments."
+    defaultTransposition: TranspositionInput
+}
+
+type SearchResult {
+    spex: [Spex!]!
+    manuscripts: [Manuscript!]!
+    "Numbers whose title, original song, lyricist or composer match."
+    numbers: [Number!]!
+    "Arrangements whose arranger or description match."
+    arrangements: [Arrangement!]!
+    "With a key: arrangement versions in it."
+    versions: [Version!]!
+    "Pages whose text matches, best first."
+    textHits: [TextHit!]!
+}
+
+type TextHit {
+    file: File!
+    version: Version!
+    "The page, from 1; null for files without pages, e.g. DOCX."
+    page: Int
+    "The text around the first match."
+    snippet: String!
+}
+
+type ShareLink {
+    id: ID!
+    "Who it is for, e.g. Ali Baba 2028, band."
+    name: String!
+    createdById: String!
+    createdByName: String
+    createdAt: Instant!
+    expiresAt: Instant!
+    revokedAt: Instant
+    revokedByName: String
+    status: ShareLinkStatus!
+    "The shared versions: all their files are shared."
+    versions: [Version!]!
+    "The files shared one by one."
+    files: [File!]!
+    "For a link made for instruments: the spex whose arrangements' parts it opens, including parts added later."
+    spexId: ID
+    spex: Spex
+    instruments: [Instrument!]!
+    "Empty for all transpositions."
+    transpositions: [Pitch!]!
+    "Downloads through the link, per file, most downloaded first."
+    downloads: [FileDownloads!]!
+    downloadCount: Int!
+}
+
+type FileDownloads {
+    file: File!
+    count: Int!
+}
+
+enum ShareLinkStatus {
+    VALID
+    EXPIRED
+    REVOKED
+}
+
+input ShareLinkInput {
+    name: String!
+    versionIds: [ID!]
+    fileIds: [ID!]
+    "With instrumentIds: shares those instruments' parts across the spex' arrangements, including parts added later."
+    spexId: ID
+    instrumentIds: [ID!]
+    "With spexId: only parts in these transpositions."
+    transpositions: [Pitch!]
+    "Defaults to 12, at most the settings' longest."
+    months: Int
+}
+
+type CreatedShareLink {
+    shareLink: ShareLink!
+    "The token for /share/<token>; shown only now, stored only as a hash."
+    token: String!
+}
+
+"What a share link shows: the shared versions with their shared files, and nothing else of the archive."
+type SharedView {
+    name: String!
+    status: ShareLinkStatus!
+    createdByName: String
+    expiresAt: Instant!
+    "Empty unless the link is valid."
+    versions: [SharedVersion!]!
+}
+
+type SharedVersion {
+    id: ID!
+    kind: MaterialKind!
+    "The manuscript's title, or the number's."
+    title: String!
+    label: String!
+    spex: SharedSpex
+    usedIn: SharedSpex
+    "The number, for an arrangement."
+    numberPosition: Int
+    originalSong: String
+    lyricist: String
+    composer: String
+    authors: String
+    arranger: String
+    key: Key
+    modulations: [Key!]!
+    tempo: String
+    duration: String
+    date: String
+    notes: String
+    instrumentation: [InstrumentationEntry!]!
+    "The shared files; downloaded under /api/share/<token>/files/{id}. For a link made for instruments, the matching parts."
+    files: [File!]!
+}
+
+type SharedSpex {
+    id: ID!
+    title: String
+    year: Int
+    categoryName: String
+}
+
+type AccessRequest {
+    id: ID!
+    userName: String
+    userEmail: String
+    reason: String!
+    createdAt: Instant!
+    files: [File!]!
+}
+
+input AccessRequestInput {
+    fileIds: [ID!]!
+    reason: String!
+}
+
+type Trash {
+    manuscripts: [Manuscript!]!
+    arrangements: [Arrangement!]!
+    "Versions trashed on their own."
+    versions: [Version!]!
+}
+
+type Storage {
+    filesBytes: Float!
+    previewsBytes: Float!
+    freeBytes: Float!
+    fileCount: Int!
+}
+
+type AuditPage {
+    entries: [AuditLogEntry!]!
+    totalCount: Int!
+    page: Int!
+    size: Int!
+}
+
+type AuditLogEntry {
+    id: ID!
+    at: Instant!
+    "Who made the change, by their subject."
+    actorId: String!
+    actorName: String
+    action: String!
+    entityType: String!
+    entityId: ID
+    summary: String!
+}
+
+input AuditFilter {
+    "What was changed, e.g. MANUSCRIPT, VERSION or SHARE_LINK."
+    entityType: String
+    "CREATE, UPDATE, DELETE and so on."
+    action: String
+    "Who made the change; only ADMIN sees others' changes."
+    actorId: String
+    "Changes from this instant on."
+    from: Instant
+    "Changes before this instant."
+    to: Instant
+    "Text the summary contains."
+    q: String
+    "One record's changes."
+    entityId: ID
+}
+
+type AuditActor {
+    id: String!
+    name: String
+}
+
+"""
+The maintenance jobs: SPEX_REFRESH copies the spex from Spexregister, UPLOAD_CLEANUP removes uploads older than 24
+hours, FILE_BACKFILL queues files without text or preview for the worker again, RETENTION removes download logs and
+access requests older than 24 months and users not seen for 36 months.
+"""
+enum MaintenanceJob {
+    SPEX_REFRESH
+    UPLOAD_CLEANUP
+    FILE_BACKFILL
+    RETENTION
+}
+
+"A maintenance job and how its latest run went. Runs are remembered until the server restarts."
+type MaintenanceJobStatus {
+    job: MaintenanceJob!
+    "The job's cron expression, in the server's time zone, or null when it is not scheduled."
+    schedule: String
+    running: Boolean!
+    "When the latest run started, or null when it has not run since the server started."
+    lastStartedAt: Instant
+    lastFinishedAt: Instant
+    "Whether the latest run finished without an error; null while it runs."
+    lastSucceeded: Boolean
+}
+
+"A key's tonic as the arranger spelled it, in ASCII: C_SHARP is C♯, B_FLAT is B♭ (Swedish B), B is Swedish H."
+enum Tonic {
+    C
+    C_SHARP
+    D_FLAT
+    D
+    D_SHARP
+    E_FLAT
+    E
+    F
+    F_SHARP
+    G_FLAT
+    G
+    G_SHARP
+    A_FLAT
+    A
+    A_SHARP
+    B_FLAT
+    B
+}
+
+enum Mode {
+    MAJOR
+    MINOR
+}
+
+"A key, e.g. F major."
+type Key {
+    tonic: Tonic!
+    mode: Mode!
+}
+
+"A key to set or filter by; filters match whatever the spelling, so C_SHARP finds D_FLAT."
+input KeyInput {
+    tonic: Tonic!
+    mode: Mode!
+}
+
+"The pitch a part is written in, in ASCII: C is concert pitch, B_FLAT is B♭ (Swedish B), B is Swedish H."
+enum Pitch {
+    C
+    D_FLAT
+    D
+    E_FLAT
+    E
+    F
+    F_SHARP
+    G
+    A_FLAT
+    A
+    B_FLAT
+    B
+}
+
+"What a part is written in: a pitch, and the octave it sounds in relative to it (-1, 0 or 1), e.g. B_FLAT -1 for tenor saxophone."
+type Transposition {
+    pitch: Pitch!
+    octave: Int!
+}
+
+input TranspositionInput {
+    pitch: Pitch!
+    "-1, 0 or 1."
+    octave: Int! = 0
+}
+
+"""
+Narrows parts to some instruments and transpositions: a file matches when it carries any of the instruments and is
+written in any of the pitches. An empty list does not narrow.
+"""
+input PartFilter {
+    instrumentIds: [ID!]
+    transpositions: [Pitch!]
+}

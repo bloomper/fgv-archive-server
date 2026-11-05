@@ -25,6 +25,7 @@ import org.springframework.graphql.data.method.annotation.QueryMapping;
 import org.springframework.stereotype.Controller;
 
 import java.util.List;
+import java.util.UUID;
 
 /**
  * GraphQL for access requests. A thin adapter: {@link AccessRequestService} decides access.
@@ -42,8 +43,13 @@ public class AccessRequestGraphqlApi {
     }
 
     @QueryMapping
-    public List<AccessRequestDto> accessRequests() {
-        return service.list();
+    public List<AccessRequestDto> accessRequests(@Argument final @Nullable Boolean handled) {
+        return service.list(handled);
+    }
+
+    @MutationMapping
+    public AccessRequestDto accessRequestHandle(@Argument final UUID id, @Argument final @Nullable Boolean handled) {
+        return service.handle(id, !Boolean.FALSE.equals(handled));
     }
 
     @MutationMapping

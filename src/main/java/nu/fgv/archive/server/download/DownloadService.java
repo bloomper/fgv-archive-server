@@ -154,7 +154,7 @@ public class DownloadService {
         final Caller caller = callerService.current();
 
         caller.requireUser();
-        return spexZip(spexId, parts, version -> MaterialDtos.sees(caller, version) && MaterialDtos.canOpen(caller, version), null);
+        return spexZip(spexId, parts, SpexParts.openableBy(caller), null);
     }
 
     /**

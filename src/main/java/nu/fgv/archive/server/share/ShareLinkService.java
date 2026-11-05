@@ -58,6 +58,7 @@ import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.Collection;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.HexFormat;
@@ -240,6 +241,25 @@ public class ShareLinkService {
         return new CreatedShareLink(toDto(link), token);
     }
 
+    /**
+     * Gives a link a new name, saying whom it is for; audited.
+     */
+    @Transactional
+    public ShareLinkDto rename(final UUID id, final @Nullable String name) {
+        final ShareLink link = owned(id);
+        final String stripped = StringUtils.hasText(name) ? name.strip() : "";
+
+        if (stripped.isEmpty() || stripped.length() > MAX_NAME) {
+            throw new BadRequestException("error.shareLink.name");
+        }
+        if (!stripped.equals(link.getName())) {
+            auditService.record("UPDATE", "SHARE_LINK", link.getUuid(),
+                    "Döpte om delningslänken " + link.getName() + " till " + stripped);
+            link.setName(stripped);
+        }
+        return toDto(link);
+    }
+
     @Transactional
     public ShareLinkDto extend(final UUID id, final int months) {
         final ShareLink link = owned(id);
@@ -304,8 +324,16 @@ public class ShareLinkService {
 
         final ShareLinkStatus status = link.status(clock.instant());
 
-        return new SharedViewDto(link.getName(), status, link.getCreatedByName(), link.getExpiresAt(),
-                status == ShareLinkStatus.VALID ? sharedVersions(link) : List.of());
+        if (status != ShareLinkStatus.VALID) {
+            return new SharedViewDto(link.getName(), status, link.getCreatedByName(), link.getExpiresAt(), null, List.of(),
+                    List.of(), List.of());
+        }
+
+        final SharedSpexDto spex = link.getSpexId() == null ? null : sharedSpex(spexService.byIds(List.of(link.getSpexId())).get(link.getSpexId()));
+
+        return new SharedViewDto(link.getName(), status, link.getCreatedByName(), link.getExpiresAt(), spex,
+                link.getInstruments().stream().sorted(Comparator.comparingInt(Instrument::getPosition)).map(FileDtos::toDto).toList(),
+                link.transpositionList(), sharedVersions(link));
     }
 
     /**
@@ -415,6 +443,7 @@ public class ShareLinkService {
             final UUID spexId = version.getManuscript() != null ? version.getManuscript().getSpexId()
                     : number == null ? null : number.getSpexId();
             final List<InstrumentationDto> instrumentation = MaterialDtos.instrumentation(version);
+            // Every file a link opens can be opened through it: canOpen is true, whoever asks
             final List<FileDto> shared = files.get(version.getUuid()).stream().map(file -> FileDtos.toDto(file, true, false)).toList();
 
             result.add(new SharedVersionDto(version.getUuid(), version.getKind(),
@@ -456,7 +485,13 @@ public class ShareLinkService {
     public record FileDownloads(FileDto file, int count) {
     }
 
+    /**
+     * What a link shows. For a link made for instruments, {@code spex}, {@code instruments} and {@code transpositions}
+     * say what it was made for; they are empty for other links, and everything but the status is empty unless it is
+     * valid.
+     */
     public record SharedViewDto(String name, ShareLinkStatus status, @Nullable String createdByName, Instant expiresAt,
+                                @Nullable SharedSpexDto spex, List<FileDtos.InstrumentDto> instruments, List<Pitch> transpositions,
                                 List<SharedVersionDto> versions) {
     }
 

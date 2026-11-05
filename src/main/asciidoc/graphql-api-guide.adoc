@@ -67,6 +67,7 @@ A revival without numbers of its own shows its original's (``Spex.numbersInherit
 *Manuscripts* belong to an original spex and *arrangements* to a number; both have *versions*, created unpublished with their first version, Original.
 Users see published versions outside the trash, and a manuscript or arrangement once it has one; editors see everything.
 A version is restricted or not (defaults in ``Settings``); restricted files are listed, with ``canOpen: false``, but opened only by editors and through share links, and ``accessRequestCreate`` asks the editors for them by email.
+Editors list the requests (``accessRequests``, all, or with ``handled: false`` the open ones and ``handled: true`` the handled ones) and mark one handled, e.g. after sending a share link, or open again (``accessRequestHandle``); both are audited.
 At most one version is recommended; ``versionCopy`` starts a new version with the same fields and instrumentation.
 The trash holds manuscripts, arrangements and versions; admins empty it, which deletes the files.
 
@@ -78,7 +79,8 @@ A file is uploaded with tus (xref:resources/upload.adoc[Upload]) and added with 
 A part carries at least one instrument, and a file with instruments gets its first instrument's default transposition unless given.
 The worker reads each file's page count and text and renders its first-page preview; ``File.processing`` tells how far it has come.
 
-Lists and zips of parts take a ``PartFilter``: instruments and transpositions, any of which a part must carry or be written in: ``Version.files(parts)``, ``Arrangement.versions(parts)``, ``Spex.arrangements(parts)``, ``search(parts)`` and the zips.
+Lists and zips of parts take a ``PartFilter``: instruments and transpositions, any of which a part must carry or be written in: ``Version.files(parts)``, ``Arrangement.versions(parts)``, ``Spex.arrangements(parts)``, ``search(parts)``, ``SharedVersion.files(parts)`` and the zips.
+A zip of a spex' parts takes from each arrangement one version: of those the caller may open, the one used in the spex, else the recommended one, else the newest; ``Arrangement.partsVersion(usedIn: <spex id>)`` tells which.
 
 [[keys]]
 == Keys and transpositions
@@ -101,9 +103,11 @@ Text hits are only in files the caller may open.
 
 Editors create share links (``shareLinkCreate``) for published versions and files, and/or for a spex and some instruments (and transpositions), which opens those parts across the spex' arrangements, including parts added later.
 The token is returned once; the database keeps only its SHA-256.
-A link lasts 12 months unless told otherwise, at most ``Settings.maxShareLinkMonths``, and is extended (``shareLinkExtend``) or revoked (``shareLinkRevoke``) by its creator or an admin.
+A link lasts 12 months unless told otherwise, at most ``Settings.maxShareLinkMonths``, and is renamed (``shareLinkRename``), extended (``shareLinkExtend``) or revoked (``shareLinkRevoke``) by its creator or an admin.
 ``shareLinks`` lists the caller's links, with downloads per file; ``shareLinks(all: true)`` everyone's for admins.
 Anyone with the token reads what a link opens with ``sharedView``, and downloads it under ``/api/share/<token>/`` (xref:resources/share.adoc[Share link]).
+Every file it lists has ``canOpen: true``, restricted or not, since the link opens it; ``files(parts)`` narrows a shared version's files like ``Version.files``.
+For a link made for instruments, ``sharedView`` also gives the ``spex``, ``instruments`` and ``transpositions`` it was made for, and its parts come as one zip in the order of the show under ``/api/share/<token>/parts/zip``; for other links they are empty.
 
 [[audit]]
 == Audit

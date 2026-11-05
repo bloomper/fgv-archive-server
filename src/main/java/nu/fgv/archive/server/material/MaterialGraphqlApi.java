@@ -123,6 +123,11 @@ public class MaterialGraphqlApi {
         return materialService.versionsOf(List.of(arrangement.id()), key, PartFilter.orNone(parts)).get(arrangement.id());
     }
 
+    @SchemaMapping(typeName = "Arrangement", field = "partsVersion")
+    public @Nullable VersionDto arrangementPartsVersion(final ArrangementDto arrangement, @Argument final UUID usedIn) {
+        return materialService.partsVersion(arrangement.id(), usedIn);
+    }
+
     @BatchMapping(typeName = "Version", field = "manuscript")
     public Map<VersionDto, @Nullable ManuscriptDto> versionManuscript(final List<VersionDto> versions) {
         return mapped(versions, VersionDto::manuscriptId, materialService::manuscriptsByIds);

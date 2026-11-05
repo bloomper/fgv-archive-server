@@ -26,7 +26,9 @@ import nu.fgv.archive.server.share.ShareLinkService.CreatedShareLink;
 import nu.fgv.archive.server.share.ShareLinkService.FileDownloads;
 import nu.fgv.archive.server.share.ShareLinkService.ShareLinkDto;
 import nu.fgv.archive.server.share.ShareLinkService.ShareLinkInput;
+import nu.fgv.archive.server.share.ShareLinkService.SharedVersionDto;
 import nu.fgv.archive.server.share.ShareLinkService.SharedViewDto;
+import nu.fgv.archive.server.file.PartFilter;
 import nu.fgv.archive.server.spex.SpexDto;
 import nu.fgv.archive.server.spex.SpexService;
 import org.jspecify.annotations.Nullable;
@@ -34,6 +36,7 @@ import org.springframework.graphql.data.method.annotation.Argument;
 import org.springframework.graphql.data.method.annotation.BatchMapping;
 import org.springframework.graphql.data.method.annotation.MutationMapping;
 import org.springframework.graphql.data.method.annotation.QueryMapping;
+import org.springframework.graphql.data.method.annotation.SchemaMapping;
 import org.springframework.stereotype.Controller;
 
 import java.util.LinkedHashMap;
@@ -134,6 +137,22 @@ public class ShareGraphqlApi {
     @MutationMapping
     public CreatedShareLink shareLinkCreate(@Argument final ShareLinkInput input) {
         return shareLinkService.create(input);
+    }
+
+    /**
+     * The shared files of a version, narrowed to the parts of some instruments or transpositions when asked, with the
+     * same matching as {@code Version.files}.
+     */
+    @SchemaMapping(typeName = "SharedVersion", field = "files")
+    public List<FileDto> sharedFiles(final SharedVersionDto version, @Argument final @Nullable PartFilter parts) {
+        final PartFilter filter = PartFilter.orNone(parts);
+
+        return filter.isEmpty() ? version.files() : version.files().stream().filter(filter::matches).toList();
+    }
+
+    @MutationMapping
+    public ShareLinkDto shareLinkRename(@Argument final UUID id, @Argument final String name) {
+        return shareLinkService.rename(id, name);
     }
 
     @MutationMapping

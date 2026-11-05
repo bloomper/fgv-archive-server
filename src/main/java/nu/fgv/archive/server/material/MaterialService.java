@@ -318,6 +318,20 @@ public class MaterialService {
     }
 
     /**
+     * The version of an arrangement whose parts the caller's zip of a spex' parts takes ({@link SpexParts#best}), or
+     * null when the caller may open none.
+     */
+    @Transactional(readOnly = true)
+    public @Nullable VersionDto partsVersion(final UUID arrangementId, final UUID spexId) {
+        final Caller caller = user();
+
+        return arrangementRepository.findByUuid(arrangementId)
+                .flatMap(arrangement -> SpexParts.best(arrangement, spexId, SpexParts.openableBy(caller)))
+                .map(version -> MaterialDtos.toDto(version, caller))
+                .orElse(null);
+    }
+
+    /**
      * The most recently changed versions the caller sees.
      */
     @Transactional(readOnly = true)

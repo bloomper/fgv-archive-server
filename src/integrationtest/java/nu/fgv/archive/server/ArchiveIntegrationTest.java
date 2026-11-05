@@ -212,12 +212,16 @@ class ArchiveIntegrationTest extends AbstractIntegrationTest {
         assertThat(get("/api/share/" + token + "/files/" + other, null, null).getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
         assertThat(get("/api/share/not-a-token/files/" + shared, null, null).getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
         graphQl(null)
-                .document("query($token: String!) { sharedView(token: $token) { status name versions { id files { id canOpen } } } }")
+                .document("query($token: String!) { sharedView(token: $token) { status name spex { id } instruments { id } transpositions versions { id files { id canOpen } } } }")
                 .variable("token", token)
                 .execute()
                 .path("sharedView.status").entity(String.class).isEqualTo("VALID")
+                .path("sharedView.spex").valueIsNull()
+                .path("sharedView.instruments").entityList(Object.class).hasSize(0)
                 .path("sharedView.versions[*].id").entityList(String.class).containsExactly(versionId)
-                .path("sharedView.versions[0].files[*].id").entityList(String.class).containsExactly(shared);
+                .path("sharedView.versions[0].files[*].id").entityList(String.class).containsExactly(shared)
+                // A restricted file still opens through the link
+                .path("sharedView.versions[0].files[0].canOpen").entity(Boolean.class).isEqualTo(true);
         // Downloads through a link are logged against the link, without a user
         assertThat(jdbcClient.sql("SELECT COUNT(*) FROM download_log WHERE share_link_id IS NOT NULL AND user_subject IS NULL")
                 .query(Long.class).single()).isEqualTo(1);
@@ -385,10 +389,14 @@ class ArchiveIntegrationTest extends AbstractIntegrationTest {
         final String later = addFile(versionId, pdf("Trumpet 2.pdf", 1), null, null, null);
 
         graphQl(null)
-                .document("query($token: String!) { sharedView(token: $token) { versions { files { id title } } } }")
+                .document("query($token: String!) { sharedView(token: $token) { spex { id } instruments { id } transpositions versions { files { id title canOpen } } } }")
                 .variable("token", token)
                 .execute()
-                .path("sharedView.versions[0].files[*].title").entityList(String.class).containsExactly("Trumpet 1", "Trumpet 2");
+                .path("sharedView.spex.id").entity(String.class).isEqualTo(SPEX_ID)
+                .path("sharedView.instruments[*].id").entityList(String.class).containsExactly(TRUMPET)
+                .path("sharedView.transpositions").entityList(String.class).hasSize(0)
+                .path("sharedView.versions[0].files[*].title").entityList(String.class).containsExactly("Trumpet 1", "Trumpet 2")
+                .path("sharedView.versions[0].files[*].canOpen").entityList(Boolean.class).containsExactly(true, true);
         assertThat(get("/api/share/" + token + "/files/" + later, null, null).getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(get("/api/share/" + token + "/parts/zip", null, null).getStatusCode()).isEqualTo(HttpStatus.OK);
     }
@@ -412,6 +420,105 @@ class ArchiveIntegrationTest extends AbstractIntegrationTest {
                 .document("{ search(q: \"\", key: {tonic: D_FLAT, mode: MINOR}) { versions { id } } }")
                 .execute()
                 .path("search.versions").entityList(Object.class).hasSize(0);
+    }
+
+    @Test
+    void sharedFilesAreNarrowedToPartsLikeAVersionsFiles() throws IOException {
+        final String versionId = arrangementVersion(SPEX_ID, "Ouvertyr");
+        final String trumpet = addFile(versionId, pdf("Trumpet 1.pdf", 1), null, null, null);
+
+        addFile(versionId, pdf("Trombon.pdf", 1), null, null, null);
+        addFile(versionId, pdf("Partitur.pdf", 1), FileRole.SCORE.toString(), List.of(), null);
+        publish(versionId);
+
+        final String token = shareLink(Map.of("name", "Ali Baba 2028, band", "versionIds", List.of(versionId)));
+
+        graphQl(null)
+                .document("query($token: String!) { sharedView(token: $token) { versions { all: files { id } trumpet: files(parts: {instrumentIds: [\"" + TRUMPET + "\"]}) { id } flat: files(parts: {transpositions: [B_FLAT]}) { id } } } }")
+                .variable("token", token)
+                .execute()
+                .path("sharedView.versions[0].all").entityList(Object.class).hasSize(3)
+                .path("sharedView.versions[0].trumpet[*].id").entityList(String.class).containsExactly(trumpet)
+                .path("sharedView.versions[0].flat[*].id").entityList(String.class).containsExactly(trumpet);
+    }
+
+    @Test
+    void anArrangementsPartsVersionFollowsTheZipsRule() throws IOException {
+        final String original = arrangementVersion(SPEX_ID, "Ouvertyr");
+        final String arrangementId = graphQl(EDITOR).document("query($id: ID!) { version(id: $id) { parentId } }")
+                .variable("id", original).execute().path("version.parentId").entity(String.class).get();
+        final String revival = graphQl(EDITOR)
+                .document("mutation($parent: ID!, $spex: ID!) { versionCreate(parentId: $parent, input: {label: \"Nyuppsättning\", usedInSpexId: $spex}) { id } }")
+                .variable("parent", arrangementId)
+                .variable("spex", REVIVAL_ID)
+                .execute()
+                .path("versionCreate.id").entity(String.class).get();
+
+        addFile(original, pdf("Trumpet 1.pdf", 1), null, null, null);
+        addFile(revival, pdf("Trumpet 1.pdf", 1), null, null, null);
+        publish(original);
+        publish(revival);
+        graphQl(EDITOR).document("mutation($id: ID!) { versionRecommend(id: $id, recommended: true) { id } }").variable("id", original).execute();
+
+        final String query = "query($id: ID!, $spex: ID!) { arrangement(id: $id) { partsVersion(usedIn: $spex) { id } } }";
+
+        // Used in the spex wins over recommended; else the recommended one
+        graphQl(EDITOR).document(query).variable("id", arrangementId).variable("spex", REVIVAL_ID).execute()
+                .path("arrangement.partsVersion.id").entity(String.class).isEqualTo(revival);
+        graphQl(EDITOR).document(query).variable("id", arrangementId).variable("spex", SPEX_ID).execute()
+                .path("arrangement.partsVersion.id").entity(String.class).isEqualTo(original);
+        // Arrangement versions start restricted, so a user may open none of them
+        graphQl(VIEWER).document(query).variable("id", arrangementId).variable("spex", SPEX_ID).execute()
+                .path("arrangement.partsVersion").valueIsNull();
+    }
+
+    @Test
+    void anEditorMarksAnAccessRequestHandled() throws IOException {
+        final String versionId = arrangementVersion(SPEX_ID, "Ouvertyr");
+        final String fileId = addFile(versionId, pdf("Trumpet 1.pdf", 1), null, null, null);
+
+        publish(versionId);
+        graphQl(VIEWER)
+                .document("mutation($file: ID!) { accessRequestCreate(input: {fileIds: [$file], reason: \"Vi sätter upp spexet\"}) }")
+                .variable("file", fileId)
+                .execute();
+
+        final String requestId = graphQl(EDITOR).document("{ accessRequests(handled: false) { id handledAt } }").execute()
+                .path("accessRequests[0].handledAt").valueIsNull()
+                .path("accessRequests[0].id").entity(String.class).get();
+
+        graphQl(EDITOR).document("mutation($id: ID!) { accessRequestHandle(id: $id) { handledAt handledByName } }")
+                .variable("id", requestId)
+                .execute()
+                .path("accessRequestHandle.handledAt").hasValue()
+                .path("accessRequestHandle.handledByName").entity(String.class).isEqualTo("Erik Test");
+        graphQl(EDITOR).document("{ open: accessRequests(handled: false) { id } done: accessRequests(handled: true) { id } all: accessRequests { id } }")
+                .execute()
+                .path("open").entityList(Object.class).hasSize(0)
+                .path("done[*].id").entityList(String.class).containsExactly(requestId)
+                .path("all[*].id").entityList(String.class).containsExactly(requestId);
+        assertThat(jdbcClient.sql("SELECT COUNT(*) FROM audit_entry WHERE entity_type = 'ACCESS_REQUEST'").query(Long.class).single()).isEqualTo(1);
+        expectError(graphQl(VIEWER).document("mutation($id: ID!) { accessRequestHandle(id: $id) { id } }").variable("id", requestId).execute(),
+                "FORBIDDEN");
+    }
+
+    @Test
+    void anEditorRenamesTheirShareLink() throws IOException {
+        final String versionId = manuscriptVersion(true);
+
+        shareLink(Map.of("name", "Styrgruppen", "versionIds", List.of(versionId)));
+
+        final String linkId = graphQl(EDITOR).document("{ shareLinks { id } }").execute()
+                .path("shareLinks[0].id").entity(String.class).get();
+
+        graphQl(EDITOR).document("mutation($id: ID!) { shareLinkRename(id: $id, name: \" Ali Baba 2028, styrgruppen \") { name } }")
+                .variable("id", linkId)
+                .execute()
+                .path("shareLinkRename.name").entity(String.class).isEqualTo("Ali Baba 2028, styrgruppen");
+        expectError(graphQl(EDITOR).document("mutation($id: ID!) { shareLinkRename(id: $id, name: \" \") { name } }")
+                .variable("id", linkId).execute(), "BAD_REQUEST");
+        assertThat(jdbcClient.sql("SELECT COUNT(*) FROM audit_entry WHERE entity_type = 'SHARE_LINK' AND summary LIKE 'Döpte om%'")
+                .query(Long.class).single()).isEqualTo(1);
     }
 
     @Test

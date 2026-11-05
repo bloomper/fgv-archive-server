@@ -37,8 +37,8 @@ import java.util.Set;
 import java.util.UUID;
 
 /**
- * A user's request for access to restricted files, with their reason, which the editors are told about by email. Kept
- * 24 months.
+ * A user's request for access to restricted files, with their reason, which the editors are told about by email, and
+ * mark handled when they have answered it. Kept 24 months.
  *
  * @author Anders Jacobsson
  * @since 1.0
@@ -70,6 +70,17 @@ public class AccessRequest {
 
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
+
+    /** When an editor marked it handled; null while it is open. */
+    @Column(name = "handled_at")
+    private @Nullable Instant handledAt;
+
+    /** The subject of the editor who marked it handled. */
+    @Column(name = "handled_by", length = 64)
+    private @Nullable String handledBy;
+
+    @Column(name = "handled_by_name")
+    private @Nullable String handledByName;
 
     @ManyToMany
     @JoinTable(name = "access_request_file",

@@ -18,6 +18,7 @@ package nu.fgv.archive.server.file;
 
 import org.jspecify.annotations.Nullable;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.UUID;
 
@@ -44,10 +45,22 @@ public record PartFilter(@Nullable List<UUID> instrumentIds, @Nullable List<Pitc
     }
 
     public boolean matches(final ArchiveFile file) {
+        return matches(file.getInstruments().stream().map(Instrument::getUuid).toList(), file.getTranspositionPitch());
+    }
+
+    /**
+     * The same for a file as the caller sees it.
+     */
+    public boolean matches(final FileDtos.FileDto file) {
+        return matches(file.instruments().stream().map(FileDtos.InstrumentDto::id).toList(),
+                file.transposition() == null ? null : file.transposition().pitch());
+    }
+
+    private boolean matches(final Collection<UUID> carried, final @Nullable Pitch pitch) {
         if (isEmpty()) {
             return true;
         }
-        return (instrumentIds == null || instrumentIds.isEmpty() || file.carriesAny(instrumentIds))
-                && (transpositions == null || transpositions.isEmpty() || transpositions.contains(file.getTranspositionPitch()));
+        return (instrumentIds == null || instrumentIds.isEmpty() || carried.stream().anyMatch(instrumentIds::contains))
+                && (transpositions == null || transpositions.isEmpty() || transpositions.contains(pitch));
     }
 }

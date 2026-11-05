@@ -23,6 +23,7 @@ import nu.fgv.archive.server.number.SpexNumber;
 import nu.fgv.archive.server.number.SpexNumberRepository;
 import nu.fgv.archive.server.spex.SpexDto;
 import nu.fgv.archive.server.spex.SpexService;
+import nu.fgv.archive.server.user.Caller;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
@@ -78,16 +79,34 @@ public class SpexParts {
 
         for (final SpexNumber number : numbers) {
             final Arrangement arrangement = arrangements.get(number.getUuid());
-            final Optional<MaterialVersion> best = arrangement == null ? Optional.empty() : arrangement.getVersions().stream()
-                    .filter(version -> version.getTrashedAt() == null && usable.test(version))
-                    .min(Comparator.comparing((MaterialVersion version) -> !spexId.equals(version.getUsedInSpexId()))
-                            .thenComparing(version -> !version.isRecommended())
-                            .thenComparing(MaterialVersion::getId, Comparator.reverseOrder()));
+            final Optional<MaterialVersion> best = arrangement == null ? Optional.empty() : best(arrangement, spexId, usable);
 
             best.ifPresent(version -> version.getFiles().stream().filter(wanted)
                     .forEach(file -> parts.add(new Part(number, version, file))));
         }
         return parts;
+    }
+
+    /**
+     * The versions a user's zip of a spex' parts may take: those the user sees and may open.
+     */
+    public static Predicate<MaterialVersion> openableBy(final Caller caller) {
+        return version -> MaterialDtos.sees(caller, version) && MaterialDtos.canOpen(caller, version);
+    }
+
+    /**
+     * The version of an arrangement whose parts a spex' zip takes: of the versions outside the trash that may be used,
+     * the one used in the spex, else the recommended one, else the newest. {@code Arrangement.partsVersion} shows the
+     * same choice.
+     *
+     * @param usable which versions may be used, e.g. those the caller may open
+     */
+    public static Optional<MaterialVersion> best(final Arrangement arrangement, final UUID spexId, final Predicate<MaterialVersion> usable) {
+        return arrangement.getVersions().stream()
+                .filter(version -> version.getTrashedAt() == null && usable.test(version))
+                .min(Comparator.comparing((MaterialVersion version) -> !spexId.equals(version.getUsedInSpexId()))
+                        .thenComparing(version -> !version.isRecommended())
+                        .thenComparing(MaterialVersion::getId, Comparator.reverseOrder()));
     }
 
     /**

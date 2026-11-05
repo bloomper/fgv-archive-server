@@ -50,8 +50,8 @@ type Query {
     or revoked link answers with its status and who made it, and nothing else.
     """
     sharedView(token: String!): SharedView
-    "EDITOR. Requests for access to restricted files, newest first."
-    accessRequests: [AccessRequest!]!
+    "EDITOR. Requests for access to restricted files, newest first: all of them, or with handled the handled (true) or open (false) ones."
+    accessRequests(handled: Boolean): [AccessRequest!]!
     "EDITOR. What is in the trash."
     trash: Trash!
     "ADMIN. Space used by files and previews, and left on the volume."
@@ -132,12 +132,16 @@ type Mutation {
     numberMerge(id: ID!, intoId: ID!): Number!
     "EDITOR. Shares the given versions (all their files) and files; expires after the given months, at most the settings' longest. The token is returned only here."
     shareLinkCreate(input: ShareLinkInput!): CreatedShareLink!
+    "EDITOR, own links; ADMIN, any. Gives the link a new name, saying whom it is for."
+    shareLinkRename(id: ID!, name: String!): ShareLink!
     "EDITOR, own links; ADMIN, any. Sets the expiry to the given months from now."
     shareLinkExtend(id: ID!, months: Int!): ShareLink!
     "EDITOR, own links; ADMIN, any."
     shareLinkRevoke(id: ID!): ShareLink!
     "USER. Asks the editors by email for access to restricted files."
     accessRequestCreate(input: AccessRequestInput!): Void
+    "EDITOR. Marks a request handled by the caller, e.g. after sending a share link, or open again with handled false."
+    accessRequestHandle(id: ID!, handled: Boolean = true): AccessRequest!
     "ADMIN. Added last."
     fileRoleCreate(input: FileRoleInput!): FileRole!
     "ADMIN."
@@ -289,6 +293,11 @@ type Arrangement {
     createdAt: Instant!
     "The versions the caller sees, the recommended one first, then the newest; with a key, those in it whatever the spelling; with parts, those with matching parts."
     versions(key: KeyInput, parts: PartFilter): [Version!]!
+    """
+    The version whose parts the caller's zip of a spex' parts takes (/api/spex/{spexId}/parts/zip): of the versions the
+    caller may open, the one used in that spex, else the recommended one, else the newest. Null when there is none.
+    """
+    partsVersion(usedIn: ID!): Version
 }
 
 input ArrangementInput {
@@ -402,7 +411,7 @@ type File {
     hasPreview: Boolean!
     "Whether the file's text is searchable."
     hasText: Boolean!
-    "Whether the caller may open and download it."
+    "Whether the caller may open and download it. Always true for the files of a SharedVersion: a share link opens every file it lists."
     canOpen: Boolean!
     "How often it was downloaded; only for EDITOR."
     downloadCount: Int
@@ -575,6 +584,15 @@ type SharedView {
     status: ShareLinkStatus!
     createdByName: String
     expiresAt: Instant!
+    """
+    For a link made for instruments, valid: the spex whose arrangements' parts it opens, in the order of the show, also
+    as one zip under /api/share/<token>/parts/zip. Null for other links.
+    """
+    spex: SharedSpex
+    "For a link made for instruments, valid: the instruments it opens the parts of. Empty otherwise."
+    instruments: [Instrument!]!
+    "For a link made for instruments, valid: the transpositions it is narrowed to; empty for all, and for other links."
+    transpositions: [Pitch!]!
     "Empty unless the link is valid."
     versions: [SharedVersion!]!
 }
@@ -601,8 +619,12 @@ type SharedVersion {
     date: String
     notes: String
     instrumentation: [InstrumentationEntry!]!
-    "The shared files; downloaded under /api/share/<token>/files/{id}. For a link made for instruments, the matching parts."
-    files: [File!]!
+    """
+    The shared files, each with canOpen true; downloaded under /api/share/<token>/files/{id}. For a link made for
+    instruments, the matching parts. With parts, only the parts of those instruments or transpositions, matched as in
+    Version.files.
+    """
+    files(parts: PartFilter): [File!]!
 }
 
 type SharedSpex {
@@ -618,6 +640,10 @@ type AccessRequest {
     userEmail: String
     reason: String!
     createdAt: Instant!
+    "When an editor marked it handled; null while it is open."
+    handledAt: Instant
+    "Who marked it handled."
+    handledByName: String
     files: [File!]!
 }
 

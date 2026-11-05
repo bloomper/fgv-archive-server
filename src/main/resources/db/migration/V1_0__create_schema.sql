@@ -366,9 +366,14 @@ CREATE TABLE access_request
     user_email   VARCHAR(255) NULL,
     reason       TEXT         NOT NULL,
     created_at   DATETIME(6)  NOT NULL,
+    -- Set when an editor marks the request handled, e.g. after sending a share link
+    handled_at   DATETIME(6)  NULL,
+    handled_by   VARCHAR(64)  NULL,
+    handled_by_name VARCHAR(255) NULL,
     PRIMARY KEY (id),
     CONSTRAINT uk_access_request_uuid UNIQUE (uuid),
-    INDEX idx_access_request_created (created_at)
+    INDEX idx_access_request_created (created_at),
+    INDEX idx_access_request_handled (handled_at)
 ) ENGINE = InnoDB
   DEFAULT CHARSET = utf8mb4
   COLLATE = utf8mb4_0900_ai_ci;

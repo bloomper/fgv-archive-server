@@ -1,0 +1,39 @@
+= Share link
+:doctype: book
+:icons: font
+:source-highlighter: highlightjs
+:toc: left
+:toclevels: 4
+:operation-http-request-title: Example request
+:operation-http-response-title: Example response
+
+xref:../api-guide.adoc[Back to API guide]
+
+What a share link opens, for anyone with its token, without logging in.
+A link opens chosen versions (all their files) and chosen files, and/or, made for a spex and some instruments, those instruments' parts across the spex' arrangements, including parts added after the link was made.
+GraphQL's `sharedView(token)` lists what it opens.
+Every download through a link is logged against it.
+The token is never logged.
+
+|===
+|Path|Content
+
+|`/api/share/{token}/files/{id}`|A file the link opens; `download=true` and `Range` as for xref:file.adoc#file[files]
+|`/api/share/{token}/files/{id}/preview`|Its preview
+|`/api/share/{token}/versions/{id}/zip`|What the link opens of a version
+|`/api/share/{token}/versions/{id}/parts/zip`|Of that, the parts, narrowed by `instrumentIds` and `transpositions`
+|`/api/share/{token}/parts/zip`|For a link made for instruments: every part it opens, in the order of the show, narrowed by `instrumentIds` and `transpositions`
+
+|===
+
+operation::share-file-get[snippets='security,path-parameters,http-request']
+
+[[gone]]
+== Expired and revoked links
+
+An expired or revoked link answers `410 Gone`, naming who made it, so that the page can say whom to ask.
+A token that is no link at all answers `404 Not Found`.
+
+operation::share-gone[snippets='http-response,response-fields']
+
+xref:../api-guide.adoc[Back to API guide]

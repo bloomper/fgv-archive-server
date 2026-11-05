@@ -1,0 +1,119 @@
+= Spexarkivet Server GraphQL API Guide
+:doctype: book
+:icons: font
+:source-highlighter: highlightjs
+:toc: left
+:toclevels: 4
+
+xref:index.adoc[Back to start page]
+
+[[schema]]
+== Schema
+
+The endpoint is ``/api/graphql``.
+If running locally, the corresponding URL is https://api.archive.fgv.local.nu:8443/api/graphql.
+
+Every operation requires an access token from the Keycloak client ``fgv-archive``, except ``sharedView``, which anyone may call with a share link's token.
+What each operation requires is in its description in the schema.
+
+Introspection is enabled only with the Spring profile ``local``.
+The schema's source is ``src/main/resources/graphql/schema.graphqls``.
+
+[[errors]]
+== Errors
+
+The GraphQL API provides the error code in ``extensions.classification`` and a message in the request's language in ``message``:
+
+|===
+|Classification|Meaning
+
+|``UNAUTHORIZED``|The request has no valid access token.
+|``FORBIDDEN``|The user lacks the role the operation requires.
+|``NOT_FOUND``|The resource does not exist. Also returned for something the user may not see.
+|``BAD_REQUEST``|The input breaks a rule, e.g. an upload of a type the archive refuses, or a part without an instrument.
+|``CONFLICT``|Someone else changed the resource, or it is in use, e.g. a number with an arrangement, which is merged instead.
+|``SPEXREGISTER_UNAVAILABLE``|Spexregister cannot be reached.
+|``DIRECTORY_UNAVAILABLE``|The FGV realm's users cannot be read in Keycloak.
+
+|===
+
+Note that invalid input according to the schema will be detected and reported as validation errors by the client which means that the structure is different from described above.
+
+[[roles]]
+== Roles
+
+Spexarkivet Server uses the following roles, which are client roles on ``fgv-archive`` in Keycloak:
+
+|===
+|Role|Description
+
+|USER|Browses and searches, reads and downloads published files that are not restricted, asks for access to restricted ones; every operation but ``sharedView`` requires it
+|EDITOR|Uploads, edits, publishes and trashes; opens restricted files; creates share links; sees their own changes in the audit log
+|ADMIN|Everything an editor does, plus settings, file roles, instruments, maintenance jobs, emptying the trash, everyone's share links and changes
+
+|===
+
+Every service method resolves the caller and checks the role before it acts; GraphQL operations hold no rules of their own.
+
+[[archive]]
+== The archive
+
+The spex are copied from Spexregister (``spexList``, ``spex``, ``categories``, ``years``), all of them, every night and at the first start, so that the archive works while Spexregister is down and lists spex without material (``missingManuscripts``).
+A revival is a spex of its own with its original as parent; a spex page shows the original and its revivals (``Spex.revivals``).
+
+*Numbers* are the archive's own until Spexipedia takes them over with the same ids: editors add them one at a time or pasted, one per line (``numbersPaste``), reorder them (``numbersReorder``), and merge a number that has an arrangement into another of the same spex (``numberMerge``); only a number without an arrangement is deleted.
+A revival without numbers of its own shows its original's (``Spex.numbersInherited``).
+
+*Manuscripts* belong to an original spex and *arrangements* to a number; both have *versions*, created unpublished with their first version, Original.
+Users see published versions outside the trash, and a manuscript or arrangement once it has one; editors see everything.
+A version is restricted or not (defaults in ``Settings``); restricted files are listed, with ``canOpen: false``, but opened only by editors and through share links, and ``accessRequestCreate`` asks the editors for them by email.
+At most one version is recommended; ``versionCopy`` starts a new version with the same fields and instrumentation.
+The trash holds manuscripts, arrangements and versions; admins empty it, which deletes the files.
+
+[[files]]
+== Files
+
+A file is uploaded with tus (xref:resources/upload.adoc[Upload]) and added with ``fileAdd``, which checks its type by content (Apache Tika) and guesses its role, instruments, desk and transposition from its name: ``Trumpet 1.pdf`` is a part for trumpet, desk 1, in B♭; ``Trumpet 1-2`` desk 1–2; ``Flöjt & Piccolo`` a part for both; ``Alt/Tenor sax`` a part for alto and tenor saxophone; ``Klarinett B`` B♭ (Swedish B), ``Klarinett H`` B, ``Altsax Ess`` E♭; ``Partitur.pdf`` the score.
+``fileGuess`` returns the same guess before uploading.
+A part carries at least one instrument, and a file with instruments gets its first instrument's default transposition unless given.
+The worker reads each file's page count and text and renders its first-page preview; ``File.processing`` tells how far it has come.
+
+Lists and zips of parts take a ``PartFilter``: instruments and transpositions, any of which a part must carry or be written in: ``Version.files(parts)``, ``Arrangement.versions(parts)``, ``Spex.arrangements(parts)``, ``search(parts)`` and the zips.
+
+[[keys]]
+== Keys and transpositions
+
+The API uses ASCII spellings and enums; how notes are shown (♯ and ♭, Swedish B and H) is the web's job.
+
+* A version's concert key (``Version.key``) is a ``Tonic``, one of 17 spellings as the arranger wrote them (``C_SHARP`` and ``D_FLAT`` are kept apart), and a ``Mode``; ``modulations`` lists the keys it moves to, in order.
+Filters on a key (``Arrangement.versions(key)``, ``Spex.arrangements(key)``, ``search(key)``) match whatever the spelling.
+* A part's ``transposition`` is the ``Pitch`` it is written in, ``C`` for concert pitch, and an octave (-1, 0 or 1) it sounds in relative to it.
+Each instrument has a ``defaultTransposition``, kept by admins.
+
+[[search]]
+== Search
+
+``search`` looks in titles, authors, arrangers, original songs, credits and numbers, and in the text of files with MySQL's full-text index, page by page, so a hit shows its page.
+Text hits are only in files the caller may open.
+
+[[share_links]]
+== Share links
+
+Editors create share links (``shareLinkCreate``) for published versions and files, and/or for a spex and some instruments (and transpositions), which opens those parts across the spex' arrangements, including parts added later.
+The token is returned once; the database keeps only its SHA-256.
+A link lasts 12 months unless told otherwise, at most ``Settings.maxShareLinkMonths``, and is extended (``shareLinkExtend``) or revoked (``shareLinkRevoke``) by its creator or an admin.
+``shareLinks`` lists the caller's links, with downloads per file; ``shareLinks(all: true)`` everyone's for admins.
+Anyone with the token reads what a link opens with ``sharedView``, and downloads it under ``/api/share/<token>/`` (xref:resources/share.adoc[Share link]).
+
+[[audit]]
+== Audit
+
+Changes are recorded in the audit log (``auditLog``): who, when, what and a summary.
+Editors see their own changes, admins everyone's.
+
+[[file_handling]]
+== File handling
+
+As GraphQL does not have any native support for uploading/downloading files, those operations are done via the xref:api-guide.adoc[HTTP API].
+
+xref:index.adoc[Back to start page]

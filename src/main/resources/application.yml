@@ -1,0 +1,146 @@
+spring:
+  config:
+    import: "optional:configtree:/run/secrets/"
+  datasource:
+    password: ${MYSQL_API_USER_PASSWORD:}
+  mail:
+    password: ${SMTP_PASSWORD:}
+  jpa:
+    open-in-view: false
+    properties:
+      hibernate:
+        type:
+          preferred_uuid_jdbc_type: CHAR
+        # Loads the files and instrumentation of many versions in one query, not one per version
+        default_batch_fetch_size: 100
+        transaction:
+          jta:
+            platform: org.hibernate.engine.transaction.jta.platform.internal.NoJtaPlatform
+  messages:
+    basename: messages
+    fallback-to-system-locale: false
+    encoding: UTF-8
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: ${archive.keycloak.url}/realms/${archive.keycloak.realm}
+      client:
+        registration:
+          fgv-archive-service:
+            provider: fgv
+            client-id: ${API_KEYCLOAK_SERVICE_CLIENT_ID:fgv-archive-service}
+            client-secret: ${API_KEYCLOAK_SERVICE_CLIENT_SECRET:}
+            authorization-grant-type: client_credentials
+        provider:
+          fgv:
+            token-uri: ${archive.keycloak.url}/realms/${archive.keycloak.realm}/protocol/openid-connect/token
+  threads:
+    virtual:
+      enabled: true
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 11MB
+  web:
+    locale: sv
+  graphql:
+    schema:
+      printer:
+        enabled: true
+      introspection:
+        enabled: false
+    http:
+      path: /api/graphql
+
+management:
+  server:
+    port: 9000
+  endpoints:
+    web:
+      exposure:
+        include: health,metrics,info
+  health:
+    # The mail server is not needed to serve the archive
+    mail:
+      enabled: false
+
+server:
+  port: 8080
+  forward-headers-strategy: framework
+  tomcat:
+    # tus chunks are at most 50 MB
+    max-swallow-size: 60MB
+
+logging:
+  file:
+    path: ./data/log_data
+
+archive:
+  time-zone: Europe/Stockholm
+  # The web's address, for the links in emails
+  web-url: ${API_WEB_URL:http://localhost:3005}
+  jobs:
+    spex-refresh:
+      cron-expression: 0 15 3 * * * # Every day at 03:15
+    upload-cleanup:
+      cron-expression: 0 5 * * * * # Every hour at :05
+    file-backfill:
+      cron-expression: 0 45 3 * * * # Every day at 03:45
+    retention:
+      cron-expression: 0 30 4 * * * # Every day at 04:30
+  keycloak:
+    url: ${API_KEYCLOAK_URL:https://auth.fgv.local.nu:8443/auth}
+    realm: ${API_KEYCLOAK_REALM:fgv}
+    # Reads the email addresses of editors for access requests; needs realm-management view-users and view-clients
+    service-client-id: ${API_KEYCLOAK_SERVICE_CLIENT_ID:fgv-archive-service}
+    service-client-secret: ${API_KEYCLOAK_SERVICE_CLIENT_SECRET:}
+    # Only for the sample data import, which gives users roles
+    admin-client-id: ${API_KEYCLOAK_ADMIN_CLIENT_ID:fgv-admin}
+    admin-client-secret: ${API_KEYCLOAK_ADMIN_CLIENT_SECRET:}
+  security:
+    authorized-parties: ${API_SECURITY_AUTHORIZED_PARTIES:fgv-archive}
+  storage:
+    # Holds files/, previews/ and uploads/
+    root: ${API_STORAGE_ROOT:./data/archive}
+  worker:
+    # Extracts text and renders previews of new files; only in archive-worker, or locally in the API
+    enabled: ${API_WORKER_ENABLED:false}
+  spexregister:
+    graphql-url: ${API_SPEXREGISTER_GRAPHQL_URL:https://api.register.fgv.local.nu:8443/api/graphql}
+  mail:
+    from: ${MAIL_FROM:noreply@localhost}
+  data:
+    import-sample-data: ${API_IMPORT_SAMPLE_DATA:false}
+    sample-data-size: ${API_SAMPLE_DATA_SIZE:small}
+    sample-user-password: ${SAMPLE_USER_PASSWORD:s3cr3t-s3cr3t}
+
+---
+spring:
+  config:
+    activate:
+      on-profile: local
+  graphql:
+    schema:
+      introspection:
+        enabled: true
+  # The password comes from MYSQL_API_USER_PASSWORD, as in the container
+  datasource:
+    url: jdbc:mysql://localhost:3311/archive
+    username: archive
+  mail:
+    host: localhost
+    port: 1025
+
+server:
+  port: 8087
+
+management:
+  server:
+    port: 9007
+
+archive:
+  keycloak:
+    url: https://auth.fgv.local.nu:8443/auth
+  worker:
+    enabled: true

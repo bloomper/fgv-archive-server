@@ -44,6 +44,7 @@ import java.io.OutputStream;
 import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.security.DigestInputStream;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -161,7 +162,8 @@ public class FileService {
 
         versionIds.forEach(id -> result.put(id, new ArrayList<>()));
         if (!versions.isEmpty()) {
-            for (final ArchiveFile file : repository.findByVersionInOrderByPositionAscIdAsc(versions).stream().filter(parts::matches).toList()) {
+            for (final ArchiveFile file : repository.findByVersionInOrderByPositionAscIdAsc(versions).stream()
+                    .filter(file -> parts.isEmpty() || parts.matchesPart(file)).toList()) {
                 final MaterialVersion version = byId.get(file.getVersion().getId());
 
                 result.get(version.getUuid()).add(FileDtos.toDto(file, MaterialDtos.canOpen(caller, version), caller.isEditor()));
@@ -297,10 +299,16 @@ public class FileService {
         setContent(file, upload, detected);
         file.setOriginalName(name.isEmpty() ? file.getOriginalName() : title(name, name));
         pageRepository.deleteByFile(file);
-        Files.deleteIfExists(storage.preview(file));
-        Files.deleteIfExists(old);
-        storage.store(upload, storage.file(file));
+
+        // The new content waits beside the old under a name of its own, and takes its place only once the change is
+        // committed; a rollback keeps the old content and drops the new
+        final Path target = storage.file(file);
+        final Path staged = target.resolveSibling(target.getFileName() + ".replacing-" + uploadId);
+        final Path preview = storage.preview(file);
+
+        storage.store(upload, staged);
         uploadService.release(uploadId);
+        swapAfterCommit(staged, target, old, preview);
         auditService.record("UPDATE", "FILE", file.getUuid(), "Bytte innehållet i filen " + file.getTitle());
         return FileDtos.toDto(file, true, true);
     }
@@ -357,6 +365,43 @@ public class FileService {
                 throw new UncheckedIOException(e);
             }
         }));
+    }
+
+    /**
+     * Moves replaced content into place once the transaction has committed, deleting the old content (when its name
+     * differs) and the old preview; on a rollback the staged content is deleted and the old stays.
+     */
+    private static void swapAfterCommit(final Path staged, final Path target, final Path old, final Path preview) {
+        final Runnable swap = () -> {
+            try {
+                Files.move(staged, target, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
+                if (!old.equals(target)) {
+                    Files.deleteIfExists(old);
+                }
+                Files.deleteIfExists(preview);
+            } catch (final IOException e) {
+                throw new UncheckedIOException(e);
+            }
+        };
+
+        if (!TransactionSynchronizationManager.isSynchronizationActive()) {
+            swap.run();
+            return;
+        }
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCompletion(final int status) {
+                try {
+                    if (status == STATUS_COMMITTED) {
+                        swap.run();
+                    } else {
+                        Files.deleteIfExists(staged);
+                    }
+                } catch (final IOException | RuntimeException e) {
+                    log.warn("Could not move replaced content into place: {}", e.getMessage());
+                }
+            }
+        });
     }
 
     /**

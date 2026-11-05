@@ -40,8 +40,10 @@ import java.util.concurrent.TimeUnit;
 
 /**
  * Gives new files their page count, searchable text and first-page preview, one at a time, in the worker container only
- * ({@code archive.worker.enabled}). Each file is read outside a transaction; a file that fails three times is marked
- * failed and can still be downloaded. The {@code FILE_BACKFILL} job queues failed and incomplete files again.
+ * ({@code archive.worker.enabled}). Each file is read outside a transaction; a file that fails three times, or that
+ * breaks the reader itself (an {@link Error} such as running out of memory), is marked failed and can still be
+ * downloaded. A result is dropped when the file's content was replaced while it was read. The {@code FILE_BACKFILL} job
+ * queues failed and incomplete files again.
  *
  * @author Anders Jacobsson
  * @since 1.0
@@ -122,21 +124,26 @@ public class FileProcessor {
     }
 
     private List<Work> next() {
-        return Objects.requireNonNull(transactionTemplate.execute(_ ->
-                repository.findByProcessingStatusOrderByIdAsc(ProcessingStatus.PENDING, PageRequest.of(0, BATCH)).stream()
-                        .map(file -> {
-                            file.setProcessingAttempts(file.getProcessingAttempts() + 1);
-                            return new Work(file.getId(), storage.file(file), storage.preview(file), file.getContentType(),
-                                    file.getProcessingAttempts());
-                        })
-                        .toList()));
+        return Objects.requireNonNull(transactionTemplate.execute(_ -> {
+            // Files whose attempts were used up without a result, e.g. when the worker died reading them, never return
+            repository.failExhausted(MAX_ATTEMPTS);
+            return repository.findByProcessingStatusAndProcessingAttemptsLessThanOrderByIdAsc(ProcessingStatus.PENDING, MAX_ATTEMPTS,
+                            PageRequest.of(0, BATCH)).stream()
+                    .map(file -> {
+                        file.setProcessingAttempts(file.getProcessingAttempts() + 1);
+                        return new Work(file.getId(), storage.file(file), storage.preview(file), file.getContentType(),
+                                file.getChecksum(), file.getProcessingAttempts());
+                    })
+                    .toList();
+        }));
     }
 
     private void process(final Work work) {
         try {
             final Result result = read(work);
 
-            transactionTemplate.executeWithoutResult(_ -> repository.findById(work.fileId()).ifPresent(file -> {
+            transactionTemplate.executeWithoutResult(_ -> repository.findById(work.fileId())
+                    .filter(file -> unchanged(file, work)).ifPresent(file -> {
                 pageRepository.deleteByFile(file);
                 for (int i = 0; i < result.texts().size(); i++) {
                     if (!result.texts().get(i).isBlank()) {
@@ -154,17 +161,33 @@ public class FileProcessor {
                 file.setProcessingStatus(ProcessingStatus.DONE);
                 file.setProcessingError(null);
             }));
-        } catch (final IOException | RuntimeException e) {
+        } catch (@SuppressWarnings("java:S1181") final Throwable e) {
+            // Errors too (OutOfMemoryError, StackOverflowError from a hostile file): the file is given up at once
+            final boolean fatal = e instanceof Error;
             final String message = String.valueOf(e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage());
 
             log.warn("Could not process file {} (attempt {}): {}", work.fileId(), work.attempt(), message);
-            transactionTemplate.executeWithoutResult(_ -> repository.findById(work.fileId()).ifPresent(file -> {
+            transactionTemplate.executeWithoutResult(_ -> repository.findById(work.fileId())
+                    .filter(file -> unchanged(file, work)).ifPresent(file -> {
                 file.setProcessingError(message.length() > MAX_ERROR ? message.substring(0, MAX_ERROR) : message);
-                if (work.attempt() >= MAX_ATTEMPTS) {
+                if (fatal || work.attempt() >= MAX_ATTEMPTS) {
                     file.setProcessingStatus(ProcessingStatus.FAILED);
                 }
             }));
         }
+    }
+
+    /**
+     * Whether a file still has the content it had when it was taken from the queue: {@code fileReplace} gives it new
+     * content and queues it again, and the old content's result must not overwrite that.
+     */
+    private static boolean unchanged(final ArchiveFile file, final Work work) {
+        final boolean same = work.checksum().equals(file.getChecksum());
+
+        if (!same) {
+            log.info("File {} was replaced while it was read; its result is dropped", work.fileId());
+        }
+        return same;
     }
 
     private Result read(final Work work) throws IOException {
@@ -182,7 +205,7 @@ public class FileProcessor {
         return new Result(null, List.of(), false, false);
     }
 
-    private record Work(Long fileId, Path file, Path preview, String contentType, int attempt) {
+    private record Work(Long fileId, Path file, Path preview, String contentType, String checksum, int attempt) {
     }
 
     private record Result(Integer pages, List<String> texts, boolean paged, boolean preview) {

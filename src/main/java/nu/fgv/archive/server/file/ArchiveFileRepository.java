@@ -43,7 +43,21 @@ public interface ArchiveFileRepository extends JpaRepository<ArchiveFile, Long> 
 
     List<ArchiveFile> findByVersionInOrderByPositionAscIdAsc(Collection<MaterialVersion> versions);
 
-    List<ArchiveFile> findByProcessingStatusOrderByIdAsc(ProcessingStatus status, Pageable pageable);
+    /**
+     * The files waiting for the worker that have attempts left.
+     */
+    List<ArchiveFile> findByProcessingStatusAndProcessingAttemptsLessThanOrderByIdAsc(ProcessingStatus status, int attempts,
+                                                                                    Pageable pageable);
+
+    /**
+     * Marks failed the waiting files that have used up their attempts, e.g. because the worker died while reading them.
+     */
+    @Modifying
+    @Query("""
+            UPDATE ArchiveFile f SET f.processingStatus = nu.fgv.archive.server.file.ProcessingStatus.FAILED,
+                   f.processingError = COALESCE(f.processingError, 'Gave up after repeated attempts')
+            WHERE f.processingStatus = nu.fgv.archive.server.file.ProcessingStatus.PENDING AND f.processingAttempts >= :attempts""")
+    int failExhausted(int attempts);
 
     List<ArchiveFile> findByProcessingStatusAndHasPreviewTrue(ProcessingStatus status);
 

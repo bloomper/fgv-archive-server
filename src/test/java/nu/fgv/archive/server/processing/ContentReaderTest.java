@@ -23,9 +23,14 @@ import org.junit.jupiter.api.io.TempDir;
 import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
 import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.zip.CRC32;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
  * PDFs are read page by page with a first-page preview; other documents' text is read with Tika.
@@ -76,5 +81,50 @@ class ContentReaderTest {
         SampleFiles.docx(docx, "Manus");
 
         assertThat(reader.text(docx)).contains(SampleFiles.SEARCH_WORD);
+    }
+
+    @Test
+    void aLongNarrowPageMakesASmallPreview() {
+        final float scale = ContentReader.previewScale(10, 100_000);
+
+        assertThat(100_000 * scale).isLessThanOrEqualTo(ContentReader.PREVIEW_MAX_HEIGHT);
+        assertThat(ContentReader.previewScale(100_000, 100_000) * 100_000 * ContentReader.previewScale(100_000, 100_000) * 100_000)
+                .isLessThanOrEqualTo(ContentReader.PREVIEW_MAX_PIXELS);
+        assertThat(ContentReader.previewScale(0, 10)).isEqualTo(1f);
+    }
+
+    @Test
+    void anImageDeclaringHugeDimensionsIsRefusedBeforeItIsDecoded() throws IOException {
+        final Path png = folder.resolve("bomb.png");
+
+        Files.write(png, pngHeader(50_000, 50_000));
+
+        assertThatThrownBy(() -> reader.imagePreview(png, folder.resolve("bomb-preview.png")))
+                .isInstanceOf(IOException.class).hasMessageContaining("too large");
+    }
+
+    @Test
+    void aLargeImageIsReadSubsampled() throws IOException {
+        final Path png = folder.resolve("large.png");
+
+        ImageIO.write(new BufferedImage(6000, 6000, BufferedImage.TYPE_INT_RGB), "png", png.toFile());
+
+        assertThat(ContentReader.readBounded(png).getWidth()).isLessThan(6000);
+        assertThat(reader.imagePreview(png, folder.resolve("large-preview.png"))).isTrue();
+        assertThat(ImageIO.read(folder.resolve("large-preview.png").toFile()).getWidth()).isEqualTo(ContentReader.PREVIEW_WIDTH);
+    }
+
+    /**
+     * The start of a PNG: its signature and a header chunk declaring the size, without any image data.
+     */
+    private static byte[] pngHeader(final int width, final int height) {
+        final ByteBuffer ihdr = ByteBuffer.allocate(17).put("IHDR".getBytes(StandardCharsets.US_ASCII))
+                .putInt(width).putInt(height).put((byte) 8).put((byte) 2).put((byte) 0).put((byte) 0).put((byte) 0);
+        final CRC32 crc = new CRC32();
+
+        crc.update(ihdr.array());
+        return ByteBuffer.allocate(8 + 4 + 17 + 4)
+                .put(new byte[]{(byte) 0x89, 'P', 'N', 'G', '\r', '\n', 0x1a, '\n'})
+                .putInt(13).put(ihdr.array()).putInt((int) crc.getValue()).array();
     }
 }

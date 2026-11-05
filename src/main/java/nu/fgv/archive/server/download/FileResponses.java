@@ -17,6 +17,7 @@
 package nu.fgv.archive.server.download;
 
 import nu.fgv.archive.server.file.FileService.StoredFile;
+import nu.fgv.archive.server.file.FileTypes;
 import nu.fgv.archive.server.util.error.ResourceNotFoundException;
 import org.springframework.core.io.FileSystemResource;
 import org.springframework.core.io.Resource;
@@ -36,7 +37,9 @@ import java.util.zip.ZipOutputStream;
 /**
  * How files, previews and zips are answered, for users and share links alike. A file is answered with byte-range
  * support, so that pdf.js loads a large PDF page by page; Spring answers a {@code Range} request with
- * {@code 206 Partial Content}. Files are never sniffed or run by the browser.
+ * {@code 206 Partial Content}. Files are never sniffed or run by the browser: only PDFs and raster images are served
+ * inline, every other type as an attachment, XML, text and notation formats as {@code application/octet-stream}, and
+ * all with a sandboxing Content Security Policy.
  *
  * @author Anders Jacobsson
  * @since 1.0
@@ -53,16 +56,18 @@ final class FileResponses {
             throw new ResourceNotFoundException("error.file.missing", file.uuid());
         }
 
-        final ContentDisposition disposition = (download ? ContentDisposition.attachment() : ContentDisposition.inline())
+        // Only PDFs and images are ever shown in the page; anything else is a download, typed so it cannot be rendered
+        final boolean inline = !download && FileTypes.isInline(file.contentType());
+        final ContentDisposition disposition = (inline ? ContentDisposition.inline() : ContentDisposition.attachment())
                 .filename(file.downloadName(), StandardCharsets.UTF_8).build();
 
         return ResponseEntity.ok()
-                .contentType(MediaType.parseMediaType(file.contentType()))
+                .contentType(MediaType.parseMediaType(FileTypes.servedType(file.contentType())))
                 .cacheControl(CACHE)
                 .header(HttpHeaders.ACCEPT_RANGES, "bytes")
                 .header(HttpHeaders.CONTENT_DISPOSITION, disposition.toString())
                 .header("X-Content-Type-Options", "nosniff")
-                .header("Content-Security-Policy", "sandbox")
+                .header("Content-Security-Policy", "sandbox; default-src 'none'")
                 .body(new FileSystemResource(file.path()));
     }
 

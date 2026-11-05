@@ -83,6 +83,9 @@ public class FileTypes {
     );
     private static final Set<String> TEXT_TYPES = Set.of(DOCX, ODT, RTF, TEXT, MUSICXML, "application/xml");
     private static final Set<String> IMAGE_TYPES = Set.of(JPEG, PNG, TIFF);
+    private static final Set<String> INLINE_TYPES = Set.of(PDF, JPEG, PNG, TIFF, "image/webp");
+    /** Binary formats a browser does not render, served with their own type. */
+    private static final Set<String> OPAQUE_TYPES = Set.of(DOCX, ODT, MIDI, "application/zip");
 
     private final Tika tika = new Tika();
 
@@ -101,6 +104,22 @@ public class FileTypes {
 
     public static boolean isImage(final String contentType) {
         return IMAGE_TYPES.contains(contentType);
+    }
+
+    /**
+     * Whether a file of this type may be shown in the browser: PDFs, for pdf.js, and raster images. Every other type is
+     * only ever downloaded, since a browser could run what is in it (an XHTML script in XML, say).
+     */
+    public static boolean isInline(final String contentType) {
+        return INLINE_TYPES.contains(contentType);
+    }
+
+    /**
+     * The type a file is served with: its own for PDFs, images and binary office and audio formats, and
+     * {@code application/octet-stream} for XML, text, RTF and notation formats, which a browser might otherwise render.
+     */
+    public static String servedType(final String contentType) {
+        return INLINE_TYPES.contains(contentType) || OPAQUE_TYPES.contains(contentType) ? contentType : OCTET_STREAM;
     }
 
     /**

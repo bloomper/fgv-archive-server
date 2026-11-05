@@ -22,9 +22,11 @@ import nu.fgv.archive.server.file.PartFilter;
 import nu.fgv.archive.server.file.Pitch;
 import org.jspecify.annotations.Nullable;
 import org.springframework.core.io.Resource;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody;
@@ -51,15 +53,17 @@ public class FileController {
     }
 
     /**
-     * A file, to read in the page or, with {@code download=true}, as a download, which is counted and logged.
+     * A file, to read in the page or, with {@code download=true}, as an attachment. Every fetch of the whole file, or
+     * of a range from its start, is counted, and logged for restricted files, whatever {@code download} says.
      */
     @GetMapping("/api/files/{id}")
     public ResponseEntity<Resource> file(@PathVariable final UUID id,
-                                         @RequestParam(defaultValue = "false") final boolean download) {
+                                         @RequestParam(defaultValue = "false") final boolean download,
+                                         @RequestHeader(value = HttpHeaders.RANGE, required = false) final @Nullable String range) {
         final StoredFile file = fileService.open(id);
         final ResponseEntity<Resource> response = FileResponses.file(file, download);
 
-        if (download) {
+        if (DownloadService.countable(range)) {
             downloadService.record(List.of(file), null);
         }
         return response;

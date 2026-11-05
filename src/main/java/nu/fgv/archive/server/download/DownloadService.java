@@ -17,7 +17,6 @@
 package nu.fgv.archive.server.download;
 
 import nu.fgv.archive.server.file.ArchiveFile;
-import nu.fgv.archive.server.file.FileRole;
 import nu.fgv.archive.server.file.FileService;
 import nu.fgv.archive.server.file.FileService.StoredFile;
 import nu.fgv.archive.server.file.PartFilter;
@@ -39,13 +38,17 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Clock;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Locale;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Predicate;
 
 /**
@@ -62,6 +65,9 @@ import java.util.function.Predicate;
 @Service
 public class DownloadService {
 
+    /** A file fetched again within this time by the same user or link is not counted or logged again. */
+    static final Duration DEDUPLICATE = Duration.ofMinutes(5);
+
     private final DownloadLogRepository logRepository;
     private final MaterialVersionRepository versionRepository;
     private final SpexNumberRepository numberRepository;
@@ -71,6 +77,8 @@ public class DownloadService {
     private final ShareLinkService shareLinkService;
     private final CallerService callerService;
     private final Clock clock;
+    /** When each user or link last downloaded each file, for {@link #DEDUPLICATE}; per API instance. */
+    private final Map<String, Instant> recent = new ConcurrentHashMap<>();
 
     @SuppressWarnings("java:S107")
     public DownloadService(final DownloadLogRepository logRepository, final MaterialVersionRepository versionRepository,
@@ -95,7 +103,7 @@ public class DownloadService {
         if (parts == null) {
             return _ -> true;
         }
-        return parts.isEmpty() ? file -> FileRole.PART.equals(file.getRole().getUuid()) : parts::matches;
+        return parts::matchesPart;
     }
 
     static String safe(final String name) {
@@ -103,13 +111,31 @@ public class DownloadService {
     }
 
     /**
-     * Counts the downloads, and logs them with who when the file is restricted or comes through a share link.
+     * Whether a GET of a file is a download to count: the whole file, or a range from its first byte, which is how a
+     * reader starts. The rest of the ranges a reader asks for are not; neither is {@code download=}, which the client
+     * chooses and which only sets the disposition.
+     */
+    public static boolean countable(final @Nullable String range) {
+        return range == null || range.isBlank() || range.strip().replace(" ", "").startsWith("bytes=0-");
+    }
+
+    /**
+     * Counts the downloads, and logs them with who when the file is restricted or comes through a share link. The same
+     * file fetched again by the same user or link within {@link #DEDUPLICATE} counts once.
      */
     @Transactional
     public void record(final List<StoredFile> files, final @Nullable Long shareLinkId) {
         final Caller caller = callerService.currentIfAny().orElse(null);
+        final String who = shareLinkId != null ? "link:" + shareLinkId : caller != null ? "user:" + caller.subject() : "anonymous";
+        final Instant now = clock.instant();
 
+        recent.values().removeIf(at -> at.isBefore(now.minus(DEDUPLICATE)));
         for (final StoredFile file : files) {
+            final Instant previous = recent.put(who + ":" + file.uuid(), now);
+
+            if (previous != null && previous.isAfter(now.minus(DEDUPLICATE))) {
+                continue;
+            }
             logRepository.countDownload(file.id());
             if (shareLinkId != null || file.restricted()) {
                 final DownloadLog entry = new DownloadLog();

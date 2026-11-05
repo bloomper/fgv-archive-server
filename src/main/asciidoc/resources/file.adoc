@@ -16,10 +16,12 @@ Users reach the files of published versions outside the trash, and open those of
 [[file]]
 == File
 
-The file as it was uploaded, for reading in the page or, with `download=true`, as a download.
+The file as it was uploaded, for reading in the page or, with `download=true`, as an attachment.
+Only PDFs and raster images (PNG, JPEG, TIFF, WebP) are ever served `inline`; every other type is an `attachment`, and XML, text, RTF and notation formats are sent as `application/octet-stream`.
+Every answer carries `Content-Security-Policy: sandbox; default-src 'none'` and `X-Content-Type-Options: nosniff`, so nothing in a file runs in the browser.
 It honours `Range` requests, so that pdf.js loads a PDF page by page.
-A download is counted; a download of a restricted file is also logged with who.
-Reading in the page is not a download.
+A fetch of the whole file, or of a range from its first byte, counts as a download, whatever `download` says; the other ranges a reader asks for do not, and the same user or link fetching the same file again within five minutes counts once.
+A download of a restricted file is also logged with who.
 
 operation::file-get[snippets='security,path-parameters,query-parameters,request-headers,http-request,response-headers']
 

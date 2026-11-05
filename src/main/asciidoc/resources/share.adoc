@@ -12,7 +12,7 @@ xref:../api-guide.adoc[Back to API guide]
 What a share link opens, for anyone with its token, without logging in.
 A link opens chosen versions (all their files) and chosen files, and/or, made for a spex and some instruments, those instruments' parts across the spex' arrangements, including parts added after the link was made.
 GraphQL's `sharedView(token)` lists what it opens, every file with `canOpen: true`, and, for a link made for instruments, the spex, instruments and transpositions it was made for.
-Every download through a link is logged against it.
+Every download through a link is logged against it: a fetch of the whole file or of a range from its start, as for xref:file.adoc#file[files], once within five minutes.
 The token is never logged.
 
 |===

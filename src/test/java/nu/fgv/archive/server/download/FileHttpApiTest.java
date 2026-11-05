@@ -92,34 +92,64 @@ class FileHttpApiTest extends AbstractApiTest {
         when(fileService.open(uuid(1))).thenReturn(file);
 
         mockMvc
-                .perform(get("/api/files/{id}", uuid(1)).header(HttpHeaders.AUTHORIZATION, BEARER).header(HttpHeaders.RANGE, "bytes=0-7"))
+                .perform(get("/api/files/{id}", uuid(1)).header(HttpHeaders.AUTHORIZATION, BEARER).header(HttpHeaders.RANGE, "bytes=8-15"))
                 .andExpect(status().isPartialContent())
-                .andExpect(header().string(HttpHeaders.CONTENT_RANGE, "bytes 0-7/19"))
+                .andExpect(header().string(HttpHeaders.CONTENT_RANGE, "bytes 8-15/19"))
+                .andExpect(header().string("Content-Security-Policy", "sandbox; default-src 'none'"))
+                .andExpect(header().string("X-Content-Type-Options", "nosniff"))
                 .andDo(document(
                         "file-get",
                         fileId,
                         queryParameters(parameterWithName("download")
-                                .description("`true` for a download, which is counted and, for restricted files, logged; else the file is read in the page")
+                                .description("`true` for an attachment; else a PDF or an image is shown inline (other types are always attachments). Either way, a fetch of the whole file or of a range from byte 0 is counted, and for restricted files logged")
                                 .optional()),
                         requestHeaders(
                                 headerWithName(HttpHeaders.AUTHORIZATION).description("The authorization header"),
                                 headerWithName(HttpHeaders.RANGE).description("The bytes wanted, e.g. by pdf.js; optional").optional()
                         ),
                         responseHeaders(
-                                headerWithName(HttpHeaders.CONTENT_TYPE).description("The file's type, detected from its content"),
+                                headerWithName(HttpHeaders.CONTENT_TYPE).description("The file's type, detected from its content; `application/octet-stream` for XML, text and notation formats"),
                                 headerWithName(HttpHeaders.CONTENT_RANGE).description("The bytes sent, for a range request"),
                                 headerWithName(HttpHeaders.ACCEPT_RANGES).description("`bytes`"),
-                                headerWithName(HttpHeaders.CONTENT_DISPOSITION).description("`inline`, or `attachment` for a download, with the file's title as its name"),
+                                headerWithName(HttpHeaders.CONTENT_DISPOSITION).description("`inline` for a PDF or an image, else, or for a download, `attachment`, with the file's title as its name"),
+                                headerWithName("Content-Security-Policy").description("`sandbox; default-src 'none'`: nothing in a file runs"),
+                                headerWithName("X-Content-Type-Options").description("`nosniff`"),
                                 headerWithName(HttpHeaders.CACHE_CONTROL).description("Private, for ten minutes")
                         ),
                         security(List.of("USER", "EDITOR for restricted files"))
                 ));
+        // A range further in, as pdf.js asks while reading, is not a download
         verify(downloadService, never()).record(anyList(), isNull());
 
         mockMvc.perform(get("/api/files/{id}?download=true", uuid(1)))
                 .andExpect(status().isOk())
                 .andExpect(header().string(HttpHeaders.CONTENT_DISPOSITION, startsWith("attachment; filename=\"Trumpet 1.pdf\"")));
         verify(downloadService).record(List.of(file), null);
+    }
+
+    @Test
+    void readingAFileInThePageIsCountedOnceFromItsStart() throws Exception {
+        when(fileService.open(uuid(1))).thenReturn(file);
+
+        mockMvc.perform(get("/api/files/{id}", uuid(1)).header(HttpHeaders.RANGE, "bytes=0-7"))
+                .andExpect(status().isPartialContent())
+                .andExpect(header().string(HttpHeaders.CONTENT_DISPOSITION, startsWith("inline")));
+        verify(downloadService).record(List.of(file), null);
+    }
+
+    @Test
+    void xmlIsNeverShownInline() throws Exception {
+        final Path xml = Files.writeString(folder.resolve("score.musicxml"),
+                "<score xmlns:h=\"http://www.w3.org/1999/xhtml\"><h:script>alert(1)</h:script></score>");
+        final StoredFile stored = new StoredFile(2L, uuid(2), xml, xml, "Partitur.musicxml", "application/vnd.recordare.musicxml+xml", false, false);
+
+        when(fileService.open(uuid(2))).thenReturn(stored);
+
+        mockMvc.perform(get("/api/files/{id}", uuid(2)))
+                .andExpect(status().isOk())
+                .andExpect(header().string(HttpHeaders.CONTENT_TYPE, "application/octet-stream"))
+                .andExpect(header().string(HttpHeaders.CONTENT_DISPOSITION, startsWith("attachment")))
+                .andExpect(header().string("Content-Security-Policy", "sandbox; default-src 'none'"));
     }
 
     @Test

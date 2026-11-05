@@ -263,7 +263,9 @@ public class NumberService {
 
     /**
      * Merges a number into another of the same spex: its arrangement moves to the other number, or its versions into
-     * the other number's arrangement, and the number is deleted.
+     * the other number's arrangement, and the number is deleted. When both have arrangements, both must be in the trash
+     * or neither: the versions then stay as they were, in a live arrangement or with the trashed one (restored with it).
+     * An arrangement that moves alone keeps its trash state.
      */
     @Transactional
     public NumberDto merge(final UUID id, final UUID intoId) {
@@ -281,6 +283,10 @@ public class NumberService {
         if (source != null) {
             final Arrangement target = arrangementRepository.findByNumberId(into.getUuid()).orElse(null);
 
+            // Versions moved between a trashed and a live arrangement would come back from the trash, or vanish into it
+            if (target != null && (source.getTrashedAt() == null) != (target.getTrashedAt() == null)) {
+                throw new ConflictException("error.number.mergeTrashed");
+            }
             if (target == null) {
                 source.setNumberId(into.getUuid());
             } else {

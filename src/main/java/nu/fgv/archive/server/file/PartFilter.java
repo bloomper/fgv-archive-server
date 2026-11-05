@@ -44,6 +44,21 @@ public record PartFilter(@Nullable List<UUID> instrumentIds, @Nullable List<Pitc
         return (instrumentIds == null || instrumentIds.isEmpty()) && (transpositions == null || transpositions.isEmpty());
     }
 
+    /**
+     * Whether a file is a part (role {@link FileRole#PART}) that the filter matches; a score or a source that carries
+     * instruments is never one. What lists, zips and shares parts uses this.
+     */
+    public boolean matchesPart(final ArchiveFile file) {
+        return FileRole.PART.equals(file.getRole().getUuid()) && matches(file);
+    }
+
+    /**
+     * The same for a file as the caller sees it.
+     */
+    public boolean matchesPart(final FileDtos.FileDto file) {
+        return FileRole.PART.equals(file.role().id()) && matches(file);
+    }
+
     public boolean matches(final ArchiveFile file) {
         return matches(file.getInstruments().stream().map(Instrument::getUuid).toList(), file.getTranspositionPitch());
     }

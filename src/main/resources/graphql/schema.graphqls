@@ -156,9 +156,9 @@ type Mutation {
     instrumentUpdate(id: ID!, input: InstrumentInput!): Instrument!
     "ADMIN. Every instrument, in the new order."
     instrumentsReorder(ids: [ID!]!): [Instrument!]!
-    "ADMIN. Only an instrument that no file or instrumentation uses; merge one that is used."
+    "ADMIN. Only an instrument that no file, instrumentation or share link uses; merge one that is used."
     instrumentDelete(id: ID!): Void
-    "ADMIN. Moves the instrument's files and instrumentation to another instrument, adding up counts, and deletes it."
+    "ADMIN. Moves the instrument's files, instrumentation and share links to another instrument, adding up counts, and deletes it."
     instrumentMerge(id: ID!, intoId: ID!): Instrument!
     "ADMIN. Deletes everything in the trash with its files."
     trashEmpty: Void
@@ -459,8 +459,8 @@ type FileRole {
     nameSv: String!
     nameEn: String!
     position: Int!
-    "How many files have it."
-    fileCount: Int!
+    "ADMIN: how many files have it, across the archive. Null for everyone else."
+    fileCount: Int
 }
 
 input FileRoleInput {
@@ -487,8 +487,8 @@ type Instrument {
     "The transposition a new part for the instrument gets."
     defaultTransposition: Transposition!
     position: Int!
-    "How many files and instrumentation entries use it."
-    useCount: Int!
+    "ADMIN: how many files, instrumentation entries and share links use it, across the archive. Null for everyone else."
+    useCount: Int
 }
 
 input InstrumentInput {
@@ -799,8 +799,9 @@ input TranspositionInput {
 }
 
 """
-Narrows parts to some instruments and transpositions: a file matches when it carries any of the instruments and is
-written in any of the pitches. An empty list does not narrow.
+Narrows parts to some instruments and transpositions: a file matches when it is a part (role Part), carries any of
+the instruments and is written in any of the pitches; scores and sources are never parts, whatever they carry. An empty
+list does not narrow.
 """
 input PartFilter {
     instrumentIds: [ID!]

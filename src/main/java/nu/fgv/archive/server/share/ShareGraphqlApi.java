@@ -140,14 +140,14 @@ public class ShareGraphqlApi {
     }
 
     /**
-     * The shared files of a version, narrowed to the parts of some instruments or transpositions when asked, with the
-     * same matching as {@code Version.files}.
+     * The shared files of a version, narrowed to the parts (role PART) of some instruments or transpositions when asked,
+     * with the same matching as {@code Version.files}.
      */
     @SchemaMapping(typeName = "SharedVersion", field = "files")
     public List<FileDto> sharedFiles(final SharedVersionDto version, @Argument final @Nullable PartFilter parts) {
         final PartFilter filter = PartFilter.orNone(parts);
 
-        return filter.isEmpty() ? version.files() : version.files().stream().filter(filter::matches).toList();
+        return filter.isEmpty() ? version.files() : version.files().stream().filter(filter::matchesPart).toList();
     }
 
     @MutationMapping

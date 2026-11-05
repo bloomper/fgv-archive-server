@@ -17,6 +17,7 @@
 package nu.fgv.archive.server.file;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 
 import java.util.List;
@@ -35,13 +36,32 @@ public interface InstrumentRepository extends JpaRepository<Instrument, Long> {
 
     List<Instrument> findAllByOrderByPositionAscIdAsc();
 
-    @Query(value = "SELECT (SELECT COUNT(*) FROM file_instrument WHERE instrument_id = :id) + (SELECT COUNT(*) FROM instrumentation_entry WHERE instrument_id = :id)",
-            nativeQuery = true)
+    /**
+     * How many files, instrumentation entries and share links use the instrument.
+     */
+    @Query(value = """
+            SELECT (SELECT COUNT(*) FROM file_instrument WHERE instrument_id = :id)
+                 + (SELECT COUNT(*) FROM instrumentation_entry WHERE instrument_id = :id)
+                 + (SELECT COUNT(*) FROM share_link_instrument WHERE instrument_id = :id)""", nativeQuery = true)
     long countUses(Long id);
 
     @Query(value = """
             SELECT i.id, (SELECT COUNT(*) FROM file_instrument f WHERE f.instrument_id = i.id)
                        + (SELECT COUNT(*) FROM instrumentation_entry e WHERE e.instrument_id = i.id)
+                       + (SELECT COUNT(*) FROM share_link_instrument s WHERE s.instrument_id = i.id)
             FROM instrument i""", nativeQuery = true)
     List<Object[]> countUsesByInstrument();
+
+    /**
+     * Gives the share links made for one instrument the other instead, once per link.
+     */
+    @Modifying
+    @Query(value = """
+            INSERT IGNORE INTO share_link_instrument (share_link_id, instrument_id)
+            SELECT share_link_id, :into FROM share_link_instrument WHERE instrument_id = :from""", nativeQuery = true)
+    int copyShareLinks(Long from, Long into);
+
+    @Modifying
+    @Query(value = "DELETE FROM share_link_instrument WHERE instrument_id = :id", nativeQuery = true)
+    int removeShareLinks(Long id);
 }

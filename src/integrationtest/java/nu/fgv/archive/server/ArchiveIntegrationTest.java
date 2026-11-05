@@ -522,6 +522,133 @@ class ArchiveIntegrationTest extends AbstractIntegrationTest {
     }
 
     @Test
+    void numbersWhoseArrangementsDifferInTrashAreNotMerged() {
+        final String first = arrangementVersion(SPEX_ID, "Ouvertyr");
+        final String second = arrangementVersion(SPEX_ID, "Finalen");
+        final String query = "query($id: ID!) { version(id: $id) { parentId arrangement { numberId } } }";
+        final String firstArrangement = graphQl(EDITOR).document(query).variable("id", first).execute().path("version.parentId").entity(String.class).get();
+        final String firstNumber = graphQl(EDITOR).document(query).variable("id", first).execute().path("version.arrangement.numberId").entity(String.class).get();
+        final String secondArrangement = graphQl(EDITOR).document(query).variable("id", second).execute().path("version.parentId").entity(String.class).get();
+        final String secondNumber = graphQl(EDITOR).document(query).variable("id", second).execute().path("version.arrangement.numberId").entity(String.class).get();
+        final String merge = "mutation($id: ID!, $into: ID!) { numberMerge(id: $id, intoId: $into) { id } }";
+
+        graphQl(EDITOR).document("mutation($id: ID!) { arrangementTrash(id: $id) { id } }").variable("id", firstArrangement).execute();
+        expectError(graphQl(EDITOR).document(merge).variable("id", firstNumber).variable("into", secondNumber).execute(), "CONFLICT");
+        expectError(graphQl(EDITOR).document(merge).variable("id", secondNumber).variable("into", firstNumber).execute(), "CONFLICT");
+
+        // Both in the trash: the versions stay in the trash with the arrangement they join
+        graphQl(EDITOR).document("mutation($id: ID!) { arrangementTrash(id: $id) { id } }").variable("id", secondArrangement).execute();
+        graphQl(EDITOR).document(merge).variable("id", firstNumber).variable("into", secondNumber).execute().path("numberMerge.id").hasValue();
+        graphQl(EDITOR).document("{ trash { arrangements { id versions { id } } } }").execute()
+                .path("trash.arrangements[*].id").entityList(String.class).containsExactly(secondArrangement);
+        graphQl(EDITOR).document("query($id: ID!) { version(id: $id) { trashed parentId } }").variable("id", first).execute()
+                .path("version.trashed").entity(Boolean.class).isEqualTo(true)
+                .path("version.parentId").entity(String.class).isEqualTo(secondArrangement);
+    }
+
+    @Test
+    void scoresAndSourcesWithInstrumentsAreNotParts() throws IOException {
+        final String versionId = arrangementVersion(SPEX_ID, "Ouvertyr");
+        final String part = addFile(versionId, pdf("Trumpet 1.pdf", 1), null, null, null);
+
+        addFile(versionId, pdf("Partitur.pdf", 1), FileRole.SCORE.toString(), List.of(TRUMPET), "B_FLAT");
+        publish(versionId);
+
+        final String token = shareLink(Map.of("name", "Trumpeterna", "spexId", SPEX_ID, "instrumentIds", List.of(TRUMPET)));
+
+        graphQl(null).document("query($token: String!) { sharedView(token: $token) { versions { files { id } } } }")
+                .variable("token", token).execute()
+                .path("sharedView.versions[0].files[*].id").entityList(String.class).containsExactly(part);
+        graphQl(EDITOR).document("query($id: ID!) { version(id: $id) { files(parts: {instrumentIds: [\"" + TRUMPET + "\"]}) { id } } }")
+                .variable("id", versionId).execute()
+                .path("version.files[*].id").entityList(String.class).containsExactly(part);
+    }
+
+    @Test
+    void anInstrumentInAShareLinkIsMergedNotDeleted() throws IOException {
+        final String versionId = arrangementVersion(SPEX_ID, "Ouvertyr");
+
+        addFile(versionId, pdf("Trumpet 1.pdf", 1), null, null, null);
+        publish(versionId);
+
+        final String clarinet = graphQl(ADMIN).document("mutation { instrumentCreate(input: {nameSv: \"Klarinett\", nameEn: \"Clarinet\", group: WOODWIND}) { id } }")
+                .execute().path("instrumentCreate.id").entity(String.class).get();
+        final String token = shareLink(Map.of("name", "Blåset", "spexId", SPEX_ID, "instrumentIds", List.of(clarinet, TRUMPET)));
+
+        graphQl(ADMIN).document("{ instruments { id useCount } }").execute()
+                .path("instruments[?(@.id == '" + clarinet + "')].useCount").entityList(Integer.class).containsExactly(1);
+        expectError(graphQl(ADMIN).document("mutation($id: ID!) { instrumentDelete(id: $id) }").variable("id", clarinet).execute(), "CONFLICT");
+        graphQl(ADMIN).document("mutation($id: ID!, $into: ID!) { instrumentMerge(id: $id, intoId: $into) { id } }")
+                .variable("id", clarinet).variable("into", TRUMPET).execute().path("instrumentMerge.id").entity(String.class).isEqualTo(TRUMPET);
+        graphQl(null).document("query($token: String!) { sharedView(token: $token) { instruments { id } } }")
+                .variable("token", token).execute()
+                .path("sharedView.instruments[*].id").entityList(String.class).containsExactly(TRUMPET);
+    }
+
+    @Test
+    void archiveWideCountsAreForAdminsOnly() {
+        graphQl(ADMIN).document("{ fileRoles { fileCount } instruments { useCount } }").execute()
+                .path("fileRoles[0].fileCount").entity(Integer.class).isEqualTo(0)
+                .path("instruments[0].useCount").entity(Integer.class).isEqualTo(0);
+        graphQl(EDITOR).document("{ fileRoles { fileCount } instruments { useCount } }").execute()
+                .path("fileRoles[0].fileCount").valueIsNull()
+                .path("instruments[0].useCount").valueIsNull();
+    }
+
+    @Test
+    void searchMatchesOnlyArrangersOfVersionsTheCallerSees() {
+        final String published = arrangementVersion(SPEX_ID, "Ouvertyr");
+        final String arrangementId = graphQl(EDITOR).document("query($id: ID!) { version(id: $id) { parentId } }")
+                .variable("id", published).execute().path("version.parentId").entity(String.class).get();
+
+        publish(published);
+        graphQl(EDITOR)
+                .document("mutation($parent: ID!) { versionCreate(parentId: $parent, input: {label: \"Utkast\", arranger: \"Hemliga Hanna\"}) { id } }")
+                .variable("parent", arrangementId).execute();
+
+        graphQl(VIEWER).document("{ search(q: \"Hemliga\") { arrangements { id } } }").execute()
+                .path("search.arrangements").entityList(Object.class).hasSize(0);
+        graphQl(EDITOR).document("{ search(q: \"Hemliga\") { arrangements { id } } }").execute()
+                .path("search.arrangements[*].id").entityList(String.class).containsExactly(arrangementId);
+    }
+
+    @Test
+    void replacedContentTakesItsPlaceOnlyAfterTheCommit() throws IOException {
+        final String versionId = manuscriptVersion(false);
+        final String fileId = addFile(versionId, pdf("Manus.pdf", 2), null, null, null);
+        final Path stored;
+
+        try (var files = Files.walk(STORAGE.resolve("files"))) {
+            stored = files.filter(Files::isRegularFile).findFirst().orElseThrow();
+        }
+
+        final byte[] before = Files.readAllBytes(stored);
+
+        graphQl(EDITOR).document("mutation($id: ID!, $upload: String!) { fileReplace(id: $id, uploadId: $upload) { id } }")
+                .variable("id", fileId).variable("upload", upload(EDITOR, pdf("Manus.pdf", 4))).execute()
+                .path("fileReplace.id").entity(String.class).isEqualTo(fileId);
+
+        try (var files = Files.walk(STORAGE.resolve("files"))) {
+            assertThat(files.filter(Files::isRegularFile).toList()).containsExactly(stored);
+        }
+        assertThat(Files.readAllBytes(stored)).isNotEqualTo(before);
+    }
+
+    @Test
+    void readingAFileIsLoggedWithoutTheClientSayingDownload() throws IOException {
+        final String versionId = arrangementVersion(SPEX_ID, "Ouvertyr");
+        final String fileId = addFile(versionId, pdf("Trumpet 1.pdf", 3), null, null, null);
+
+        publish(versionId);
+        // An editor reads a restricted part in the reader: the first range is a download, the rest are not, and reading
+        // it again within minutes is the same download
+        assertThat(get("/api/files/" + fileId, EDITOR, "bytes=0-99").getStatusCode()).isEqualTo(HttpStatus.PARTIAL_CONTENT);
+        assertThat(get("/api/files/" + fileId, EDITOR, "bytes=100-199").getStatusCode()).isEqualTo(HttpStatus.PARTIAL_CONTENT);
+        assertThat(get("/api/files/" + fileId, EDITOR, null).getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(jdbcClient.sql("SELECT COUNT(*) FROM download_log").query(Long.class).single()).isEqualTo(1);
+    }
+
+    @Test
     void usersCannotEdit() {
         expectError(graphQl(VIEWER)
                 .document("mutation($spex: ID!) { manuscriptCreate(input: {spexId: $spex}) { id } }")

@@ -149,7 +149,7 @@ public class MaterialService {
      */
     public static boolean matches(final MaterialVersion version, final @Nullable MusicKey key, final PartFilter parts) {
         return (key == null || (version.getKey() != null && version.getKey().soundsLike(key)))
-                && (parts.isEmpty() || version.getFiles().stream().anyMatch(parts::matches));
+                && (parts.isEmpty() || version.getFiles().stream().anyMatch(parts::matchesPart));
     }
 
     private Caller user() {

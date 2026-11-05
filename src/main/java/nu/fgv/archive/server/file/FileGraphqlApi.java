@@ -78,18 +78,18 @@ public class FileGraphqlApi {
     }
 
     @BatchMapping(typeName = "FileRole", field = "fileCount")
-    public Map<FileRoleDto, Integer> fileCount(final List<FileRoleDto> roles) {
+    public Map<FileRoleDto, @Nullable Integer> fileCount(final List<FileRoleDto> roles) {
         final Map<UUID, Integer> counts = roleService.fileCounts(roles.stream().map(FileRoleDto::id).toList());
-        final Map<FileRoleDto, Integer> result = new LinkedHashMap<>();
+        final Map<FileRoleDto, @Nullable Integer> result = new LinkedHashMap<>();
 
         roles.forEach(role -> result.put(role, counts.get(role.id())));
         return result;
     }
 
     @BatchMapping(typeName = "Instrument", field = "useCount")
-    public Map<InstrumentDto, Integer> useCount(final List<InstrumentDto> instruments) {
+    public Map<InstrumentDto, @Nullable Integer> useCount(final List<InstrumentDto> instruments) {
         final Map<UUID, Integer> counts = instrumentService.useCounts(instruments.stream().map(InstrumentDto::id).toList());
-        final Map<InstrumentDto, Integer> result = new LinkedHashMap<>();
+        final Map<InstrumentDto, @Nullable Integer> result = new LinkedHashMap<>();
 
         instruments.forEach(instrument -> result.put(instrument, counts.get(instrument.id())));
         return result;

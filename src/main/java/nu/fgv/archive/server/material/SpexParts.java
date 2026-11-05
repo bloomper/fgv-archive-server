@@ -17,7 +17,6 @@
 package nu.fgv.archive.server.material;
 
 import nu.fgv.archive.server.file.ArchiveFile;
-import nu.fgv.archive.server.file.FileRole;
 import nu.fgv.archive.server.file.PartFilter;
 import nu.fgv.archive.server.number.SpexNumber;
 import nu.fgv.archive.server.number.SpexNumberRepository;
@@ -74,7 +73,7 @@ public class SpexParts {
         final Map<UUID, Arrangement> arrangements = arrangementRepository.findByNumberIdIn(numbers.stream().map(SpexNumber::getUuid).toList())
                 .stream().filter(arrangement -> arrangement.getTrashedAt() == null)
                 .collect(Collectors.toMap(Arrangement::getNumberId, Function.identity()));
-        final Predicate<ArchiveFile> wanted = filter.isEmpty() ? file -> FileRole.PART.equals(file.getRole().getUuid()) : filter::matches;
+        final Predicate<ArchiveFile> wanted = filter::matchesPart;
         final List<Part> parts = new ArrayList<>();
 
         for (final SpexNumber number : numbers) {

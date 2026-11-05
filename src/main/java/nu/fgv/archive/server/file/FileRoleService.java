@@ -19,6 +19,7 @@ package nu.fgv.archive.server.file;
 import nu.fgv.archive.server.audit.AuditService;
 import nu.fgv.archive.server.file.FileDtos.FileRoleDto;
 import nu.fgv.archive.server.file.FileDtos.FileRoleInput;
+import nu.fgv.archive.server.user.Caller;
 import nu.fgv.archive.server.user.CallerService;
 import nu.fgv.archive.server.util.error.BadRequestException;
 import nu.fgv.archive.server.util.error.ConflictException;
@@ -77,6 +78,11 @@ public class FileRoleService {
      */
     @Transactional(readOnly = true)
     public Map<UUID, Integer> fileCounts(final Collection<UUID> ids) {
+        // The archive-wide counts are for admins only; others, including share link visitors, get none
+        if (!callerService.currentIfAny().map(Caller::isAdmin).orElse(false)) {
+            return Map.of();
+        }
+
         final Map<Long, UUID> uuids = repository.findAll().stream().collect(Collectors.toMap(FileRole::getId, FileRole::getUuid));
         final Map<UUID, Integer> counts = new HashMap<>();
 

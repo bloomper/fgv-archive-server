@@ -22,6 +22,7 @@ import nu.fgv.archive.server.file.FileDtos.InstrumentInput;
 import nu.fgv.archive.server.material.InstrumentationEntry;
 import nu.fgv.archive.server.material.MaterialVersion;
 import nu.fgv.archive.server.material.MaterialVersionRepository;
+import nu.fgv.archive.server.user.Caller;
 import nu.fgv.archive.server.user.CallerService;
 import nu.fgv.archive.server.util.error.BadRequestException;
 import nu.fgv.archive.server.util.error.ConflictException;
@@ -88,6 +89,11 @@ public class InstrumentService {
      */
     @Transactional(readOnly = true)
     public Map<UUID, Integer> useCounts(final Collection<UUID> ids) {
+        // The archive-wide counts are for admins only; others, including share link visitors, get none
+        if (!callerService.currentIfAny().map(Caller::isAdmin).orElse(false)) {
+            return Map.of();
+        }
+
         final Map<Long, UUID> uuids = repository.findAll().stream().collect(Collectors.toMap(Instrument::getId, Instrument::getUuid));
         final Map<UUID, Integer> counts = new HashMap<>();
 
@@ -157,8 +163,8 @@ public class InstrumentService {
     }
 
     /**
-     * Moves an instrument's files and instrumentation entries to another instrument, adding up the counts where a
-     * version has both and keeping a file's other instruments, and deletes it.
+     * Moves an instrument's files, instrumentation entries and share links to another instrument, adding up the counts
+     * where a version has both and keeping a file's other instruments and a link's other instruments, and deletes it.
      */
     @Transactional
     public InstrumentDto merge(final UUID id, final UUID intoId) {
@@ -196,6 +202,9 @@ public class InstrumentService {
             }
         }
         versionRepository.flush();
+        // Share links made for the instrument open the other's parts instead
+        repository.copyShareLinks(instrument.getId(), into.getId());
+        repository.removeShareLinks(instrument.getId());
         repository.delete(instrument);
         auditService.record("UPDATE", "INSTRUMENT", into.getUuid(), "Slog ihop instrumentet %s med %s".formatted(instrument.getNameSv(), into.getNameSv()));
         return FileDtos.toDto(into);

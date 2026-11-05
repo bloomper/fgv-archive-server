@@ -156,6 +156,9 @@ public class SearchService {
                 .limit(MAX_RESULTS).map(NumberService::toDto).toList();
         final List<ArrangementDto> arrangements = arrangementRepository.search(pattern).stream()
                 .filter(arrangement -> arrangement.getTrashedAt() == null && MaterialDtos.sees(caller, arrangement))
+                // The match must be in what the caller sees: an unpublished version's arranger is the editors' only
+                .filter(arrangement -> contains(arrangement.getDescription(), q) || arrangement.getVersions().stream()
+                        .anyMatch(version -> !version.isInTrash() && MaterialDtos.sees(caller, version) && contains(version.getArranger(), q)))
                 .filter(arrangement -> (key == null && parts.isEmpty()) || arrangement.getVersions().stream()
                         .anyMatch(version -> !version.isInTrash() && MaterialDtos.sees(caller, version) && MaterialService.matches(version, key, parts)))
                 .limit(MAX_RESULTS).map(MaterialDtos::toDto).toList();
@@ -189,7 +192,8 @@ public class SearchService {
 
             final MaterialVersion version = file.getVersion();
 
-            if (!version.isInTrash() && MaterialDtos.sees(caller, version) && MaterialDtos.canOpen(caller, version) && parts.matches(file)) {
+            if (!version.isInTrash() && MaterialDtos.sees(caller, version) && MaterialDtos.canOpen(caller, version)
+                    && (parts.isEmpty() || parts.matchesPart(file))) {
                 final int page = ((Number) row[1]).intValue();
                 final FileDto fileDto = FileDtos.toDto(file, true, caller.isEditor());
 

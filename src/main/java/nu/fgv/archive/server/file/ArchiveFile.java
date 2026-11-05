@@ -164,8 +164,4 @@ public class ArchiveFile extends AbstractAuditable {
     public boolean carriesAny(final Collection<UUID> instrumentIds) {
         return instruments.stream().anyMatch(instrument -> instrumentIds.contains(instrument.getUuid()));
     }
-
-    public boolean isPdf() {
-        return FileTypes.PDF.equals(contentType);
-    }
 }

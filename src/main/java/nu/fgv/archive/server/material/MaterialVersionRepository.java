@@ -37,10 +37,6 @@ public interface MaterialVersionRepository extends JpaRepository<MaterialVersion
 
     List<MaterialVersion> findByUuidIn(Collection<UUID> uuids);
 
-    List<MaterialVersion> findByManuscriptInOrderByIdAsc(Collection<Manuscript> manuscripts);
-
-    List<MaterialVersion> findByArrangementInOrderByIdAsc(Collection<Arrangement> arrangements);
-
     List<MaterialVersion> findByTrashedAtIsNotNullOrderByTrashedAtDesc();
 
     List<MaterialVersion> findByKind(MaterialKind kind);

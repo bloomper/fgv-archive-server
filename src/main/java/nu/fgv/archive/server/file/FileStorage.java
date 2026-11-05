@@ -96,21 +96,6 @@ public class FileStorage {
     }
 
     /**
-     * Deletes a file and its preview.
-     */
-    public void delete(final ArchiveFile file) throws IOException {
-        Files.deleteIfExists(file(file));
-        Files.deleteIfExists(preview(file));
-    }
-
-    /**
-     * Deletes a version's folder with whatever is left in it.
-     */
-    public void deleteVersion(final UUID versionId) throws IOException {
-        FileSystemUtils.deleteRecursively(files().resolve(versionId.toString()));
-    }
-
-    /**
      * The bytes in a folder and its subfolders.
      */
     public long size(final Path folder) throws IOException {

@@ -138,11 +138,4 @@ public class CallerService {
         }
         return user;
     }
-
-    /**
-     * The record of the caller, created on first use.
-     */
-    public AppUser currentUser() {
-        return record(current());
-    }
 }

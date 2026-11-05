@@ -188,7 +188,7 @@ Spexregister's import deletes all Keycloak users at every start, so restart Spex
 --
 
 The import generates, for about 10 spex (about 150 with ``API_SAMPLE_DATA_SIZE=large``), numbers (a revival with numbers of its own every other time), manuscripts of 20–80 pages with searchable Swedish text (the word ``kungamantel`` occurs on every page but the first), revival rewrites, drafts, a scanned page without text, DOCX sources, and arrangements for all numbers but the last, with original and revival versions in several keys (one with a modulation, one transposed to D), instrumentation, a score and full sets of parts: a trumpet part in B♭ and the same in C, a part for alto or tenor saxophone, a horn part in F, MusicXML and MIDI files.
-There are restricted, open and unpublished versions, items in the trash, an access request, download logs and audit log entries.
+There are restricted, open and unpublished versions, items in the trash, an open and a handled access request, download logs and audit log entries.
 The files are queued for the worker, which reads them within a minute or so.
 ``SampleFiles.disallowed()`` makes a file of a type the archive refuses, for testing rejection.
 
@@ -264,7 +264,7 @@ The first three are Spexregister's sample users, which are the same in every FGV
 
 |admin@fgv.nu|``USER``, ``EDITOR``, ``ADMIN``|
 |editor@fgv.nu|``USER``, ``EDITOR``|Has made the share links and the audit log's changes
-|user@fgv.nu|``USER``|Has asked for access to two restricted parts
+|user@fgv.nu|``USER``|Has asked for access to two restricted parts (open), and earlier for a score (handled by editor@fgv.nu)
 |no-access@fgv.nu|None|Created by the import when missing; shared with Spexify's and Spexflix's sample data
 
 |===
@@ -277,6 +277,7 @@ The sample share links, made by editor@fgv.nu, open without logging in at ``/sha
 |``exempel-giltig-delningslank-0000000000000001``|Valid, about 300 days|A manuscript version and three restricted arrangement versions ("Ali Baba 2028, band"); has downloads
 |``exempel-utgangen-delningslank-00000000000001``|Expired|A manuscript version
 |``exempel-aterkallad-delningslank-000000000001``|Revoked|A score
+|``exempel-instrument-delningslank-00000000001``|Valid, about 200 days|Made for instruments ("Bleckblåset, B och C"): the trumpet and trombone parts in B♭ and C across the spex of the first published arrangement, in the order of the show, including parts added later
 
 |===
 

@@ -77,17 +77,30 @@ class SampleDataImporterIntegrationTest extends AbstractIntegrationTest {
                 .query(Long.class).single()).isGreaterThanOrEqualTo(3);
         assertThat(jdbcClient.sql("SELECT COUNT(*) FROM file_instrument GROUP BY file_id ORDER BY COUNT(*) DESC LIMIT 1")
                 .query(Long.class).single()).isEqualTo(2);
-        assertThat(jdbcClient.sql("SELECT COUNT(*) FROM access_request").query(Long.class).single()).isEqualTo(1);
+        assertThat(jdbcClient.sql("SELECT COUNT(*) FROM access_request").query(Long.class).single()).isEqualTo(2);
+        assertThat(jdbcClient.sql("SELECT COUNT(*) FROM access_request WHERE handled_at IS NOT NULL AND handled_by_name IS NOT NULL")
+                .query(Long.class).single()).isEqualTo(1);
         assertThat(jdbcClient.sql("SELECT COUNT(*) FROM download_log").query(Long.class).single()).isPositive();
 
         for (final String[] link : List.of(new String[]{SampleDataImporter.VALID_TOKEN, "VALID"},
-                new String[]{SampleDataImporter.EXPIRED_TOKEN, "EXPIRED"}, new String[]{SampleDataImporter.REVOKED_TOKEN, "REVOKED"})) {
+                new String[]{SampleDataImporter.EXPIRED_TOKEN, "EXPIRED"}, new String[]{SampleDataImporter.REVOKED_TOKEN, "REVOKED"},
+                new String[]{SampleDataImporter.INSTRUMENT_TOKEN, "VALID"})) {
             graphQl(null)
                     .document("query($token: String!) { sharedView(token: $token) { status } }")
                     .variable("token", link[0])
                     .execute()
                     .path("sharedView.status").entity(String.class).isEqualTo(link[1]);
         }
+        // The instrument link says what it was made for, and opens brass parts in B♭ and C only
+        graphQl(null)
+                .document("query($token: String!) { sharedView(token: $token) { spex { id } instruments { nameEn } transpositions versions { files { transposition { pitch } instruments { nameEn } } } } }")
+                .variable("token", SampleDataImporter.INSTRUMENT_TOKEN)
+                .execute()
+                .path("sharedView.spex.id").hasValue()
+                .path("sharedView.instruments[*].nameEn").entityList(String.class).containsExactly("Trumpet", "Trombone")
+                .path("sharedView.transpositions").entityList(String.class).containsExactly("B_FLAT", "C")
+                .path("sharedView.versions[*].files[*].transposition.pitch").entityList(String.class)
+                .satisfies(pitches -> assertThat(pitches).isNotEmpty().allMatch(pitch -> pitch.equals("B_FLAT") || pitch.equals("C")));
 
         // The worker reads every file; the scan has no text
         assertThat(fileProcessor.processPending()).isPositive();

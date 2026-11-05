@@ -116,6 +116,8 @@ public class SampleDataImporter {
     public static final String VALID_TOKEN = "exempel-giltig-delningslank-0000000000000001";
     public static final String EXPIRED_TOKEN = "exempel-utgangen-delningslank-00000000000001";
     public static final String REVOKED_TOKEN = "exempel-aterkallad-delningslank-000000000001";
+    /** A link made for instruments: a spex' trumpet and trombone parts in B♭ and C, including parts added later. */
+    public static final String INSTRUMENT_TOKEN = "exempel-instrument-delningslank-00000000001";
     // Spexregister's sample users, which its sample data import creates; they get roles here
     static final String ADMIN = "admin@fgv.nu";
     static final String EDITOR = "editor@fgv.nu";
@@ -657,6 +659,17 @@ public class SampleDataImporter {
 
         revoked.getFiles().add(arrangements.getFirst().getFiles().getFirst());
 
+        // The spex of the first published arrangement: its brass parts, in B♭ and C, across its arrangements
+        final MaterialVersion brassVersion = listed.stream().filter(version -> version.getKind() == MaterialKind.ARRANGEMENT)
+                .findFirst().orElseThrow();
+        final ShareLink brass = shareLink("Bleckblåset, B och C", INSTRUMENT_TOKEN, editor, clock.instant().plus(Duration.ofDays(200)), null);
+
+        brass.setSpexId(numberRepository.findByUuid(Objects.requireNonNull(brassVersion.getArrangement()).getNumberId())
+                .orElseThrow().getSpexId());
+        brass.getInstruments().add(instrument(TRUMPET));
+        brass.getInstruments().add(instrument(TROMBONE));
+        brass.setTranspositions(Pitch.B_FLAT.name() + "," + Pitch.C.name());
+
         final ArchiveFile restrictedFile = arrangements.getFirst().getFiles().get(1);
 
         for (int i = 0; i < 3; i++) {
@@ -675,6 +688,21 @@ public class SampleDataImporter {
         request.setCreatedAt(clock.instant().minus(Duration.ofDays(2)));
         request.getFiles().addAll(arrangements.getFirst().getFiles().stream().filter(file -> !file.getInstruments().isEmpty()).limit(2).toList());
         accessRequestRepository.save(request);
+
+        // One the editor has answered, with a share link
+        final AccessRequest handled = new AccessRequest();
+
+        handled.setUuid(id("access-request-2"));
+        handled.setUserSubject(users.get(USER).getSubject());
+        handled.setUserName(users.get(USER).getDisplayName());
+        handled.setUserEmail(USER);
+        handled.setReason("Vi sätter upp spexet igen och behöver partituret.");
+        handled.setCreatedAt(clock.instant().minus(Duration.ofDays(20)));
+        handled.setHandledAt(clock.instant().minus(Duration.ofDays(18)));
+        handled.setHandledBy(editor.getSubject());
+        handled.setHandledByName(editor.getDisplayName());
+        handled.getFiles().add(arrangements.getFirst().getFiles().getFirst());
+        accessRequestRepository.save(handled);
     }
 
     private ShareLink shareLink(final String name, final String token, final AppUser creator, final Instant expiresAt,

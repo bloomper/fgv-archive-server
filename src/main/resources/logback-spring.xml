@@ -16,6 +16,8 @@
             <pattern>%d [%thread] [%level] [%logger] %msg%n</pattern>
         </encoder>
     </appender>
+    <!-- Unembedded standard fonts (Helvetica etc.) are rendered with a metric-compatible substitute; not worth a warning per page -->
+    <logger name="org.apache.pdfbox.pdmodel.font.PDType1Font" level="ERROR"/>
     <springProfile name="!local">
         <root level="INFO">
             <appender-ref ref="SERVER_LOG"/>

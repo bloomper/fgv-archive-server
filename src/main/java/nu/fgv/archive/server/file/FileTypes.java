@@ -18,11 +18,11 @@ package nu.fgv.archive.server.file;
 
 import nu.fgv.archive.server.util.error.BadRequestException;
 import org.apache.tika.Tika;
+import org.apache.tika.io.TikaInputStream;
 import org.springframework.stereotype.Component;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Locale;
@@ -130,7 +130,8 @@ public class FileTypes {
     public Detected detect(final Path file, final String name) throws IOException {
         final String detected;
 
-        try (InputStream in = Files.newInputStream(file)) {
+        // A file-backed TikaInputStream lets Tika open zips as such instead of guessing from a stream
+        try (InputStream in = TikaInputStream.get(file)) {
             detected = tika.detect(in, name);
         }
 

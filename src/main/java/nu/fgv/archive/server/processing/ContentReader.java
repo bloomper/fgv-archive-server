@@ -25,6 +25,7 @@ import org.apache.pdfbox.rendering.PDFRenderer;
 import org.apache.pdfbox.text.PDFTextStripper;
 import org.apache.tika.Tika;
 import org.apache.tika.exception.TikaException;
+import org.apache.tika.io.TikaInputStream;
 import org.springframework.stereotype.Component;
 
 import javax.imageio.ImageIO;
@@ -171,7 +172,7 @@ public class ContentReader {
      * The text of a document that is not a PDF, e.g. DOCX, ODT, RTF, TXT or MusicXML.
      */
     public String text(final Path file) throws IOException {
-        try (InputStream in = Files.newInputStream(file)) {
+        try (InputStream in = TikaInputStream.get(file)) {
             return clip(tika.parseToString(in));
         } catch (final TikaException e) {
             throw new IOException("Could not read the text: " + e.getMessage(), e);

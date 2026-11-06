@@ -1,0 +1,110 @@
+= Spexarkivet Server HTTP API Guide
+:doctype: book
+:icons: font
+:source-highlighter: highlightjs
+:toc: left
+:toclevels: 4
+
+xref:index.adoc[Back to start page]
+
+[[introduction]]
+== Introduction
+
+Spexarkivet Server's API is xref:graphql-api-guide.adoc[GraphQL].
+A few endpoints are plain HTTP, for what GraphQL does not suit: files, previews and zips, the same through share links, and resumable uploads.
+Like GraphQL, they are thin adapters over the services, which decide who may do what.
+
+The web streams files from these endpoints to the browser, adding the user's access token, or using the share link's token in the address, and passing `Range` on, so that pdf.js loads a large PDF page by page.
+
+[[http_verbs]]
+== HTTP verbs
+
+|===
+| Verb | Usage
+
+| `GET`
+| Used to retrieve a file, a preview or a zip
+
+| `HEAD`
+| Used to read an upload's offset
+
+| `POST`
+| Used to create an upload
+
+| `PATCH`
+| Used to send a chunk of an upload
+
+| `DELETE`
+| Used to cancel an upload
+
+| `OPTIONS`
+| Used to read the upload endpoint's capabilities
+|===
+
+[[http_status_codes]]
+== HTTP status codes
+
+|===
+| Status code | Usage
+
+| `200 OK`
+| The request completed successfully.
+
+| `201 Created`
+| An upload has been created.
+
+| `204 No Content`
+| There is nothing to return, e.g. a chunk has been stored or an upload cancelled.
+
+| `206 Partial Content`
+| The bytes asked for with `Range`.
+
+| `400 Bad Request`
+| The request was malformed.
+
+| `401 Unauthorized`
+| The request has no valid access token.
+
+| `403 Forbidden`
+| The user lacks the role the request requires, e.g. a restricted file for someone without `EDITOR`.
+
+| `404 Not Found`
+| The resource does not exist, the user may not see it, or a share link does not open it.
+
+| `409 Conflict`
+| A chunk does not start where the upload stands.
+
+| `410 Gone`
+| A share link has expired or been revoked.
+|===
+
+[[errors]]
+== Errors
+
+Whenever an error response (status code >= 400) is returned, the body is a JSON object with the same codes as the GraphQL API:
+
+include::{snippets}/error/response-fields.adoc[]
+
+For example, a request for a file that does not exist, or that the user may not see, produces a `404 Not Found` response:
+
+include::{snippets}/error/http-response.adoc[]
+
+[[roles]]
+== Roles
+
+Every endpoint but those of share links requires an access token from the `fgv-archive` client with the `USER` client role.
+Restricted files and versions need `EDITOR` or `ADMIN`; uploads need `EDITOR` or `ADMIN`, exactly as in the xref:graphql-api-guide.adoc#roles[GraphQL API].
+The share link endpoints, under `/api/share/<token>/`, need no token: the share link's token in the address is the access.
+
+[[resources]]
+== Resources
+
+Spexarkivet Server uses the following resources:
+
+* xref:resources/file.adoc[File]
+* xref:resources/share.adoc[Share link]
+* xref:resources/upload.adoc[Upload]
+
+Click on each respective resource for more details.
+
+xref:index.adoc[Back to start page]

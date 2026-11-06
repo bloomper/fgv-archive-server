@@ -1,0 +1,316 @@
+= Spexarkivet Server
+:doctype: book
+:icons: font
+:source-highlighter: highlightjs
+:toc: left
+:toclevels: 4
+
+xref:index.adoc[Back to start page]
+
+[[prerequisites]]
+== Prerequisites
+
+You need to have the following installed to run Spexarkivet Server:
+
+* Docker
+
+You also need the following if you are to do development in Spexarkivet Server:
+
+* Git
+* Java
+** Version 25 is required, later versions might work as well
+* An IDE of your choice
+
+[[cloning_the_repository]]
+== Cloning the repository
+
+Clone the Git repository:
+
+[source,bash]
+----
+$ git clone https://github.com/bloomper/fgv-archive-server
+----
+
+[[setup]]
+== Setup
+
+[[infrastructure]]
+=== Shared infrastructure
+
+Keycloak (with the realm ``fgv``), Mailpit, Umami and Caddy, which FGV's applications share, run in the local stack of https://github.com/bloomper/fgv-infra-deploy[fgv-infra-deploy].
+Check it out two levels up (``../../fgv-infra-deploy`` from this repository) and start it once; it keeps running for every application:
+
+[source,bash]
+----
+$ git clone https://github.com/bloomper/fgv-infra-deploy ../../fgv-infra-deploy
+$ cd ../../fgv-infra-deploy/local
+$ printf '%s' 'verysecret' > .docker/secrets/KEYCLOAK_MYSQL_ROOT_PASSWORD
+$ printf '%s' 'secret' > .docker/secrets/KEYCLOAK_MYSQL_USER_PASSWORD
+$ printf '%s' 'password' > .docker/secrets/KEYCLOAK_ADMIN_PASSWORD   # for the user KEYCLOAK_ADMIN in local/.env
+$ git update-index --skip-worktree .docker/secrets/*
+$ docker compose up -d
+----
+
+It creates the Docker network ``fgv-local``, which this repository's ``docker-compose.yaml`` joins.
+Keycloak imports the realm, with its clients and their secrets, from ``realm/fgv.json`` in https://github.com/bloomper/fgv-keycloak[fgv-keycloak].
+
+Spexarkivet reads spex from Spexregister, and its sample data is built on Spexregister's (see <<sample_data>>).
+Run https://github.com/bloomper/spexregister-server[spexregister-server]'s local stack as well, as its getting started guide describes.
+
+[[configuration]]
+=== Configuration
+
+There are some configuration parameters that need to be set before Spexarkivet Server can be started.
+Each parameter is a file under ``.docker/secrets``, containing only the value.
+The files are in git with the placeholder ``CHANGE_ME``, as are the directories that ``docker-compose.yaml`` mounts (kept by ``.gitkeep``).
+Two scripts fill them in, once fgv-infra-deploy's local stack runs (see <<infrastructure>>):
+
+[source,bash]
+----
+$ ./scripts/init-secrets.sh          # random passwords and keys for every file still holding CHANGE_ME
+$ ./scripts/configure-keycloak.sh    # the Keycloak client secrets, read from the local Keycloak
+----
+
+Both keep the values that are already set, so they can be run again, and tell git to leave your values alone so they are never committed (``git update-index --skip-worktree .docker/secrets/*``).
+The database passwords take effect only when the databases are created, i.e. with empty data folders.
+To set a value by hand, write it without a trailing newline, e.g. ``printf '%s' 'verysecret' > .docker/secrets/FGV_ARCHIVE_MYSQL_ROOT_PASSWORD``.
+
+To see a changed placeholder after a pull, undo it with ``git update-index --no-skip-worktree .docker/secrets/*``.
+
+|===
+|Parameter|Purpose|Comment|Example value
+
+|FGV_ARCHIVE_MYSQL_ROOT_PASSWORD|The password for the root user of Spexarkivet Server's database||verysecret
+|FGV_ARCHIVE_MYSQL_USER_PASSWORD|The password for the user of Spexarkivet Server's database||secret
+|API_KEYCLOAK_SERVICE_CLIENT_SECRET|The client secret of ``fgv-archive-service``, with which Spexarkivet Server reads spex from Spexregister and the editors' email addresses from Keycloak|Must match the value in ``realm/fgv.json`` in fgv-keycloak, search for ``fgv-archive-service`` and pick the value for ``secret`` in the same section|
+|API_KEYCLOAK_ADMIN_CLIENT_SECRET|The client secret of ``fgv-admin``, with which the sample data import gives users roles|Must match the value in ``realm/fgv.json``, search for ``fgv-admin``|
+
+|===
+
+There are also configuration parameters in ``.env`` that can be tweaked if so desired but the default values will work just fine.
+
+|===
+|Parameter|Purpose|Default value
+
+|FGV_ARCHIVE_MYSQL_DATABASE|The name of the database used by Spexarkivet Server|archive
+|FGV_ARCHIVE_MYSQL_ROOT_USER|The root user of Spexarkivet Server's database|root
+|FGV_ARCHIVE_MYSQL_USER|The user of Spexarkivet Server's database|archive
+|API_WEB_URL|The web's address, for the links in the emails about access requests|http://localhost:3005
+|API_KEYCLOAK_REALM|The Keycloak realm of Spexarkivet Server|fgv
+|API_KEYCLOAK_ADMIN_CLIENT_ID|The Keycloak admin client id of Spexarkivet Server|fgv-admin
+|API_KEYCLOAK_CLIENT_CLIENT_ID|The Keycloak client id of Spexarkivet Web|fgv-archive
+|API_IMPORT_SAMPLE_DATA|A flag determining whether to import sample data or not|false
+|API_SAMPLE_DATA_SIZE|``small`` (material for about 10 spex) or ``large`` (about 150, with very short files)|small
+
+|===
+
+Access tokens are only accepted from the Keycloak client ``fgv-archive`` (``API_SECURITY_AUTHORIZED_PARTIES``).
+
+Add the following to `/etc/hosts` (or the Windows equivalent):
+
+[source,bash]
+----
+###################################
+#           Spexarkivet           #
+###################################
+127.0.0.1 auth.fgv.local.nu
+127.0.0.1 api.archive.fgv.local.nu
+127.0.0.1 archive.fgv.local.nu
+127.0.0.1 mail.fgv.local.nu
+127.0.0.1 analytics.fgv.local.nu
+----
+
+[[run]]
+== Run
+
+You are now ready to get Spexarkivet Server up and running, after fgv-infra-deploy's local stack:
+
+[source,bash]
+----
+$ docker compose -f ../../fgv-infra-deploy/local/compose.yaml up -d
+$ docker compose up -d
+----
+
+This starts MySQL and ``archive-api``, which reaches Keycloak, Mailpit and Spexregister by their container names on the ``fgv-local`` network.
+Caddy serves it on ``https://api.archive.fgv.local.nu:8443``.
+MySQL is also published on localhost, on port 3311.
+Locally the worker, which reads the files' text and renders their previews, runs inside the API (the Spring profile ``local``); fgv-archive-deploy runs it in a container of its own, ``archive-worker``.
+
+When the ``archive-api`` container isn't running, Caddy forwards ``https://api.archive.fgv.local.nu:8443`` to port 8087 on the host, i.e. Spexarkivet Server started from the IDE or with ``./gradlew bootRun`` with the Spring profile ``local`` (management on port 9007):
+
+[source,bash]
+----
+$ docker compose up -d archive-mysql
+$ MYSQL_API_USER_PASSWORD=<FGV_ARCHIVE_MYSQL_USER_PASSWORD> \
+  API_KEYCLOAK_SERVICE_CLIENT_SECRET=<…> API_KEYCLOAK_ADMIN_CLIENT_SECRET=<…> \
+  ./gradlew bootRun --args='--spring.profiles.active=local'
+----
+
+The JVM must then trust Caddy's local root certificate (see <<caddy>>), since it reaches Keycloak at ``https://auth.fgv.local.nu:8443``, e.g. with ``JAVA_TOOL_OPTIONS="-Djavax.net.ssl.trustStore=<a truststore with it>"``.
+
+The realm lets a locally running https://github.com/bloomper/fgv-archive-web[fgv-archive-web], i.e. ``npm run dev``, log in from ``ARCHIVE_URL`` in fgv-infra-deploy's ``local/.env``, which defaults to ``http://localhost:3005``; through Caddy the web is ``https://archive.fgv.local.nu:9443``.
+
+``./scripts/configure-keycloak.sh`` copies the secrets of the Keycloak clients the API uses from the local Keycloak into ``.docker/secrets``, sets the web client's id and secret (``KEYCLOAK_CLIENT_ID``, ``KEYCLOAK_CLIENT_SECRET``) in the ``.env.local`` of the web's checkout next to this one (or where ``WEB_DIR`` points), and allows Postman's callback URL in Keycloak (see <<testing_the_api>>).
+It finds fgv-infra-deploy in ``../../fgv-infra-deploy``, or where ``INFRA_DEPLOY`` points.
+
+The same setup for staging and production is in https://github.com/bloomper/fgv-archive-deploy[fgv-archive-deploy] and fgv-infra-deploy.
+
+[[storage]]
+== Storage
+
+The archive's metadata, the files' text and the copies of the spex live in MySQL.
+The files live in the storage folder (``./data/archive``, ``API_STORAGE_ROOT``), named by id, never in the database:
+
+|===
+|Folder|Content|Backed up
+
+|``files/``|Uploaded files, ``files/<version id>/<file id>.<extension>``|Yes
+|``previews/``|First-page previews, ``previews/<file id>.png``; the ``FILE_BACKFILL`` job makes missing ones again|No
+|``uploads/``|Unfinished uploads, kept 24 hours|No
+
+|===
+
+Files are served only by the API, after an access check, so trashed files stay where they are until an admin empties the trash.
+
+[[sample_data]]
+== Sample data
+
+If ``API_IMPORT_SAMPLE_DATA`` is set to ``true``, the database is replaced and the storage folders are emptied at every start (it refuses in the Spring profile ``production``).
+None of the data can be traced to real individuals, i.e. no personally identifiable information (PII).
+The import needs the secret of ``fgv-admin``.
+
+The sample data is built on Spexregister's, so Spexregister must run with ``API_IMPORT_SAMPLE_DATA=true``:
+
+* The material belongs to Spexregister's sample spex, read from its API, newest first; the oldest spex keep no material, for the lists of what is missing.
+The import waits up to 5 minutes for Spexregister.
+* Spexregister's sample users get roles on ``fgv-archive`` (see <<test_credentials>>).
+The import refuses to run without them, which keeps it away from real environments.
+
+[sidebar]
+.NOTE
+--
+Spexregister's import deletes all Keycloak users at every start, so restart Spexarkivet Server after Spexregister.
+--
+
+The import generates, for about 10 spex (about 150 with ``API_SAMPLE_DATA_SIZE=large``), numbers (a revival with numbers of its own every other time), manuscripts of 20–80 pages with searchable Swedish text (the word ``kungamantel`` occurs on every page but the first), revival rewrites, drafts, a scanned page without text, DOCX sources, and arrangements for all numbers but the last, with original and revival versions in several keys (one with a modulation, one transposed to D), instrumentation, a score and full sets of parts: a trumpet part in B♭ and the same in C, a part for alto or tenor saxophone, a horn part in F, MusicXML and MIDI files.
+There are restricted, open and unpublished versions, items in the trash, an open and a handled access request, download logs and audit log entries.
+The files are queued for the worker, which reads them within a minute or so.
+``SampleFiles.disallowed()`` makes a file of a type the archive refuses, for testing rejection.
+
+[[keycloak]]
+== Keycloak
+
+[[keycloak_administration]]
+=== Administration UI
+
+The administrative UI of Keycloak can be accessed at https://auth.fgv.local.nu:8443/auth.
+The username is ``KEYCLOAK_ADMIN`` in fgv-infra-deploy's ``local/.env`` and the password is in its ``local/.docker/secrets/KEYCLOAK_ADMIN_PASSWORD``.
+
+[[keycloak_setup]]
+=== Setup
+
+The realm is defined by ``realm/fgv.json`` in fgv-keycloak, whose README describes what it contains.
+Spexarkivet uses its clients ``fgv-archive`` (the web, and Spexarkivet's roles), ``fgv-archive-service`` (spex from Spexregister with its ``MEDIA`` role, and the editors' email addresses) and ``fgv-admin`` (the sample data's users).
+Reading the editors needs ``realm-management``'s ``view-users`` and ``view-clients`` on ``fgv-archive-service``; without ``view-clients`` the emails about access requests go only to the recipients in the settings.
+
+The integration tests import a copy of ``fgv.json``.
+Refresh it with ``./gradlew syncRealm`` from a checkout of ``fgv-keycloak`` two folders up (``../../fgv-keycloak``) after every realm change, and commit it.
+
+To get a changed ``fgv.json`` into the local Keycloak, run ``docker compose down`` in fgv-infra-deploy's ``local``, empty ``local/.docker/keycloak-mysql/data`` and start it again.
+
+[[caddy]]
+== Caddy
+
+Caddy, in fgv-infra-deploy's local stack, is used as a web server in front of Keycloak and Spexarkivet Server and takes care of creating and assigning an SSL certificate.
+However, since it is listening to local addresses, the certificate is not created by a proper CA (Certificate Authority).
+It is therefore needed to import the root certificate to avoid browsers complaining about the certificate.
+
+The root certificate can be found in fgv-infra-deploy's ``local/.docker/caddy/data/caddy/pki/authorities/local/root.crt``.
+Import it into your OS's trust manager.
+
+[[mailpit]]
+== Mailpit
+
+Mailpit (https://mailpit.axllent.org/), in fgv-infra-deploy's local stack, acts as the SMTP server when running locally.
+It catches all emails sent by Keycloak and by Spexarkivet Server (requests for access to restricted files), nothing is delivered to real recipients.
+
+The caught emails can be viewed at https://mail.fgv.local.nu:8443 (or http://localhost:8025).
+
+[[tests]]
+== Tests
+
+There are two types of tests:
+
+* Unit tests, located under ``src/test``
+* Integration tests, located under ``src/integrationtest``
+
+Unit tests do not require any external dependencies, such as a database, and are therefore quicker to run.
+Among them are the API tests, which are used to generate the xref:api-guide.adoc[HTTP API documentation].
+
+Integration tests start MySQL and Keycloak with Testcontainers, so they need Docker, and use WireMock as a stand-in for Spexregister.
+They upload generated files with tus and go through the real HTTP endpoints.
+
+[source,bash]
+----
+$ ./gradlew test               # unit tests, also generates the snippets for the HTTP API documentation
+$ ./gradlew integrationTest
+$ ./gradlew check              # both, with compiler warnings as errors, and Jacoco
+$ ./gradlew build              # all of the above, plus this documentation
+----
+
+[[test_credentials]]
+== Test credentials
+
+The following test users have roles on ``fgv-archive`` when sample data is imported (see <<sample_data>>), with the password in ``SAMPLE_USER_PASSWORD`` (default ``s3cr3t-s3cr3t``, the same as Spexregister's).
+The first three are Spexregister's sample users, which are the same in every FGV application.
+
+|===
+|Username|Roles on ``fgv-archive``|Comment
+
+|admin@fgv.nu|``USER``, ``EDITOR``, ``ADMIN``|
+|editor@fgv.nu|``USER``, ``EDITOR``|Has made the share links and the audit log's changes
+|user@fgv.nu|``USER``|Has asked for access to two restricted parts (open), and earlier for a score (handled by editor@fgv.nu)
+|no-access@fgv.nu|None|Created by the import when missing; shared with Spexify's and Spexflix's sample data
+
+|===
+
+The sample share links, made by editor@fgv.nu, open without logging in at ``/share/<token>`` in the web, and under ``/api/share/<token>/`` in the API:
+
+|===
+|Token|Status|Opens
+
+|``exempel-giltig-delningslank-0000000000000001``|Valid, about 300 days|A manuscript version and three restricted arrangement versions ("Ali Baba 2028, band"); has downloads
+|``exempel-utgangen-delningslank-00000000000001``|Expired|A manuscript version
+|``exempel-aterkallad-delningslank-000000000001``|Revoked|A score
+|``exempel-instrument-delningslank-00000000001``|Valid, about 200 days|Made for instruments ("Bleckblåset, B och C"): the trumpet and trombone parts in B♭ and C across the spex of the first published arrangement, in the order of the show, including parts added later
+
+|===
+
+[[testing_the_api]]
+== Testing the API
+
+There are many tools out there that can be used for manual testing of the APIs, e.g. Postman (https://www.postman.com/).
+The Keycloak client requires PKCE, so the tool must support it.
+
+To use Postman, first run ``./scripts/configure-keycloak.sh``, which allows Postman's callback URL in Keycloak.
+Then select ``OAuth 2.0`` as ``Auth Type`` under the ``Authorization`` tab and then select
+``Authorization Code (With PKCE)`` as ``Grant type`` and ``SHA-256`` as ``Code Challenge Method``.
+Enter values as follows (leave other fields empty).
+
+|===
+
+|Field|Value|Comment
+
+|Callback URL|https://oauth.pstmn.io/v1/browser-callback|
+|Auth URL|https://auth.fgv.local.nu:8443/auth/realms/fgv/protocol/openid-connect/auth|If ``API_KEYCLOAK_REALM`` in ``.env`` has been changed, the value must be changed accordingly
+|Access Token URL|https://auth.fgv.local.nu:8443/auth/realms/fgv/protocol/openid-connect/token|If ``API_KEYCLOAK_REALM`` in ``.env`` has been changed, the value must be changed accordingly
+|Client ID|fgv-archive|If ``API_KEYCLOAK_CLIENT_CLIENT_ID`` in ``.env`` has been changed, the value must be changed accordingly
+|Client Secret|The secret of ``fgv-archive`` in ``realm/fgv.json``|If the secret of the client has been changed in Keycloak, the value must be changed accordingly
+|Client Authentication|Send as Basic Auth header|
+
+|===
+
+Request an access token by clicking ``Get New Access Token`` and use any of the test credentials to login.
+Use the obtained access token when invoking the API, e.g. https://api.archive.fgv.local.nu:8443/api/graphql.
+
+xref:index.adoc[Back to start page]

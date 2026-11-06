@@ -1,0 +1,111 @@
+name: fgv-archive-server
+
+services:
+  archive-mysql:
+    image: 'mysql:8.4'
+    restart: unless-stopped
+    command: --log-error=/var/log/mysql/error.log
+    environment:
+      MYSQL_HOST: localhost
+      MYSQL_DATABASE: ${FGV_ARCHIVE_MYSQL_DATABASE}
+      MYSQL_ROOT_USER: ${FGV_ARCHIVE_MYSQL_ROOT_USER}
+      MYSQL_ROOT_PASSWORD_FILE: /run/secrets/FGV_ARCHIVE_MYSQL_ROOT_PASSWORD
+      MYSQL_USER: ${FGV_ARCHIVE_MYSQL_USER}
+      MYSQL_PASSWORD_FILE: /run/secrets/FGV_ARCHIVE_MYSQL_USER_PASSWORD
+    healthcheck:
+      test: [ "CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "--silent" ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    ports:
+      - "127.0.0.1:3311:3306"
+    volumes:
+      - fgv_archive_mysql_data:/var/lib/mysql
+      - fgv_archive_mysql_log:/var/log/mysql
+    secrets:
+      - FGV_ARCHIVE_MYSQL_ROOT_PASSWORD
+      - FGV_ARCHIVE_MYSQL_USER_PASSWORD
+
+  # The API, with the worker that reads files and renders previews running inside it (the local profile)
+  archive-api:
+    image: 'bloomper/fgv-archive-server:develop'
+    #platform: linux/arm64
+    environment:
+      SPRING_PROFILES_ACTIVE: local
+      SPRING_DATASOURCE_URL: jdbc:mysql://archive-mysql/${FGV_ARCHIVE_MYSQL_DATABASE}
+      SPRING_DATASOURCE_USERNAME: ${FGV_ARCHIVE_MYSQL_USER}
+      SERVER_PORT: 8080
+      MANAGEMENT_SERVER_PORT: 9000
+      LOGGING_FILE_PATH: /data/log_data
+      SERVER_FORWARD_HEADERS_STRATEGY: native
+      # Bind straight to the properties, which the local profile sets to localhost values
+      ARCHIVE_KEYCLOAK_URL: http://keycloak-server:8080/auth
+      SPRING_MAIL_HOST: mailpit
+      SPRING_MAIL_PORT: 1025
+      MAIL_FROM: noreply@fgv.local.nu
+      API_WEB_URL: ${API_WEB_URL}
+      API_KEYCLOAK_REALM: ${API_KEYCLOAK_REALM}
+      API_KEYCLOAK_ADMIN_CLIENT_ID: ${API_KEYCLOAK_ADMIN_CLIENT_ID}
+      API_STORAGE_ROOT: /data/archive
+      API_SPEXREGISTER_GRAPHQL_URL: http://spexregister-api:8080/api/graphql
+      API_IMPORT_SAMPLE_DATA: ${API_IMPORT_SAMPLE_DATA:-false}
+      API_SAMPLE_DATA_SIZE: ${API_SAMPLE_DATA_SIZE:-small}
+      SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK_SET_URI: http://keycloak-server:8080/auth/realms/fgv/protocol/openid-connect/certs
+      SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI: https://auth.fgv.local.nu:8443/auth/realms/fgv
+    restart: unless-stopped
+    healthcheck:
+      test: [ "CMD", "bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/9000;printf \"GET /actuator/health HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n\" >&3;grep -q \"^HTTP/1.1 200\" <&3" ]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 120s
+    depends_on:
+      archive-mysql:
+        condition: service_healthy
+    volumes:
+      - fgv_archive_api_log:/data/log_data
+      - ./data/archive:/data/archive
+    networks:
+      - default
+      - fgv
+    secrets:
+      - source: FGV_ARCHIVE_MYSQL_USER_PASSWORD
+        target: MYSQL_API_USER_PASSWORD
+      - API_KEYCLOAK_ADMIN_CLIENT_SECRET
+      - API_KEYCLOAK_SERVICE_CLIENT_SECRET
+
+volumes:
+  fgv_archive_mysql_data:
+    driver: local
+    driver_opts:
+      type: none
+      device: .docker/fgv-archive-mysql/data
+      o: bind
+  fgv_archive_mysql_log:
+    driver: local
+    driver_opts:
+      type: none
+      device: .docker/fgv-archive-mysql/log
+      o: bind
+  fgv_archive_api_log:
+    driver: local
+    driver_opts:
+      type: none
+      device: .docker/fgv-archive-api/log_data
+      o: bind
+
+networks:
+  fgv:
+    name: fgv-local
+    external: true
+
+secrets:
+  FGV_ARCHIVE_MYSQL_ROOT_PASSWORD:
+    file: .docker/secrets/FGV_ARCHIVE_MYSQL_ROOT_PASSWORD
+  FGV_ARCHIVE_MYSQL_USER_PASSWORD:
+    file: .docker/secrets/FGV_ARCHIVE_MYSQL_USER_PASSWORD
+  API_KEYCLOAK_ADMIN_CLIENT_SECRET:
+    file: .docker/secrets/API_KEYCLOAK_ADMIN_CLIENT_SECRET
+  API_KEYCLOAK_SERVICE_CLIENT_SECRET:
+    file: .docker/secrets/API_KEYCLOAK_SERVICE_CLIENT_SECRET

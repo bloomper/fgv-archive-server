@@ -1,0 +1,54 @@
+= File
+:doctype: book
+:icons: font
+:source-highlighter: highlightjs
+:toc: left
+:toclevels: 4
+:operation-http-request-title: Example request
+:operation-http-response-title: Example response
+
+xref:../api-guide.adoc[Back to API guide]
+
+A file of a version, its first-page preview, and zips of versions and parts.
+Users reach the files of published versions outside the trash, and open those of versions that are not restricted; editors reach and open every file.
+`404 Not Found` when the file does not exist or the caller does not see it, `403 Forbidden` when it is restricted and the caller is not an editor.
+
+[[file]]
+== File
+
+The file as it was uploaded, for reading in the page or, with `download=true`, as an attachment.
+Only PDFs and raster images (PNG, JPEG, TIFF, WebP) are ever served `inline`; every other type is an `attachment`, and XML, text, RTF and notation formats are sent as `application/octet-stream`.
+Every answer carries `Content-Security-Policy: sandbox; default-src 'none'` and `X-Content-Type-Options: nosniff`, so nothing in a file runs in the browser.
+It honours `Range` requests, so that pdf.js loads a PDF page by page.
+A fetch of the whole file, or of a range from its first byte, counts as a download, whatever `download` says; the other ranges a reader asks for do not, and the same user or link fetching the same file again within five minutes counts once.
+A download of a restricted file is also logged with who.
+
+operation::file-get[snippets='security,path-parameters,query-parameters,request-headers,http-request,response-headers']
+
+[[preview]]
+== Preview
+
+A PNG of a PDF's first page, or of an image, 600 pixels wide, made by the worker after the upload.
+`404 Not Found` until then, and for files without one (`File.hasPreview` in GraphQL).
+
+operation::file-preview-get[snippets='security,path-parameters,request-headers,http-request']
+
+[[zips]]
+== Zips
+
+Streamed, stored rather than compressed, with the files' titles as names:
+
+|===
+|Path|Content
+
+|`/api/versions/{id}/zip`|Every file of a version
+|`/api/versions/{id}/parts/zip`|The parts of an arrangement version, or with `instrumentIds` and `transpositions` those of some instruments and pitches
+|`/api/spex/{spexId}/parts/zip`|The parts of some instruments and pitches across a spex' arrangements, in the order of the show, e.g. every trumpet part, or every B♭ part; from each arrangement the version used in the spex, else the recommended one, else the newest, that the user may open
+
+|===
+
+A part matches when it carries any of the instruments and is written in any of the pitches; without either, every part is included.
+
+operation::version-parts-zip-get[snippets='security,path-parameters,query-parameters,request-headers,http-request,response-headers']
+
+xref:../api-guide.adoc[Back to API guide]

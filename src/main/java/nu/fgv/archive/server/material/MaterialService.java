@@ -198,23 +198,19 @@ public class MaterialService {
     @Transactional(readOnly = true)
     public Map<UUID, ManuscriptDto> manuscriptsByIds(final Collection<UUID> ids) {
         final Caller caller = user();
-        final Map<UUID, ManuscriptDto> result = new HashMap<>();
 
-        ids.stream().distinct().forEach(id -> manuscriptRepository.findByUuid(id)
+        return ids.isEmpty() ? Map.of() : manuscriptRepository.findByUuidIn(ids).stream()
                 .filter(manuscript -> MaterialDtos.sees(caller, manuscript))
-                .ifPresent(manuscript -> result.put(id, MaterialDtos.toDto(manuscript))));
-        return result;
+                .collect(Collectors.toMap(Manuscript::getUuid, MaterialDtos::toDto));
     }
 
     @Transactional(readOnly = true)
     public Map<UUID, ArrangementDto> arrangementsByIds(final Collection<UUID> ids) {
         final Caller caller = user();
-        final Map<UUID, ArrangementDto> result = new HashMap<>();
 
-        ids.stream().distinct().forEach(id -> arrangementRepository.findByUuid(id)
+        return ids.isEmpty() ? Map.of() : arrangementRepository.findByUuidIn(ids).stream()
                 .filter(arrangement -> MaterialDtos.sees(caller, arrangement))
-                .ifPresent(arrangement -> result.put(id, MaterialDtos.toDto(arrangement))));
-        return result;
+                .collect(Collectors.toMap(Arrangement::getUuid, MaterialDtos::toDto));
     }
 
     /**
@@ -303,13 +299,16 @@ public class MaterialService {
         final Caller caller = user();
         final Map<UUID, List<VersionDto>> result = new LinkedHashMap<>();
 
-        parentIds.forEach(id -> result.put(id, new ArrayList<>()));
-        for (final UUID id : parentIds) {
-            final List<MaterialVersion> versions = manuscriptRepository.findByUuid(id).map(Manuscript::getVersions)
-                    .or(() -> arrangementRepository.findByUuid(id).map(Arrangement::getVersions))
-                    .orElse(List.of());
+        // One query for the manuscripts and one for the arrangements, not one per parent: a batch of parents
+        final Map<UUID, List<MaterialVersion>> parents = new HashMap<>();
 
-            versions.stream()
+        parentIds.forEach(id -> result.put(id, new ArrayList<>()));
+        if (!parentIds.isEmpty()) {
+            manuscriptRepository.findByUuidIn(parentIds).forEach(manuscript -> parents.put(manuscript.getUuid(), manuscript.getVersions()));
+            arrangementRepository.findByUuidIn(parentIds).forEach(arrangement -> parents.putIfAbsent(arrangement.getUuid(), arrangement.getVersions()));
+        }
+        for (final UUID id : parentIds) {
+            parents.getOrDefault(id, List.of()).stream()
                     .filter(version -> version.getTrashedAt() == null && MaterialDtos.sees(caller, version) && matches(version, key, parts))
                     .sorted(VERSION_ORDER)
                     .forEach(version -> result.get(id).add(MaterialDtos.toDto(version, caller)));

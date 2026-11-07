@@ -18,6 +18,7 @@ package nu.fgv.archive.server.share;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -31,6 +32,8 @@ import java.util.UUID;
 public interface ShareLinkRepository extends JpaRepository<ShareLink, Long> {
 
     Optional<ShareLink> findByUuid(UUID uuid);
+
+    List<ShareLink> findByUuidIn(Collection<UUID> uuids);
 
     Optional<ShareLink> findByTokenHash(String tokenHash);
 

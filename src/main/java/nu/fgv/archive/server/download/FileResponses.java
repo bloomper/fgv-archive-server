@@ -47,6 +47,8 @@ import java.util.zip.ZipOutputStream;
 final class FileResponses {
 
     private static final CacheControl CACHE = CacheControl.maxAge(Duration.ofMinutes(10)).cachePrivate();
+    private static final String NOSNIFF = "nosniff";
+    private static final String SANDBOX = "sandbox; default-src 'none'";
 
     private FileResponses() {
     }
@@ -66,8 +68,8 @@ final class FileResponses {
                 .cacheControl(CACHE)
                 .header(HttpHeaders.ACCEPT_RANGES, "bytes")
                 .header(HttpHeaders.CONTENT_DISPOSITION, disposition.toString())
-                .header("X-Content-Type-Options", "nosniff")
-                .header("Content-Security-Policy", "sandbox; default-src 'none'")
+                .header("X-Content-Type-Options", NOSNIFF)
+                .header("Content-Security-Policy", SANDBOX)
                 .body(new FileSystemResource(file.path()));
     }
 
@@ -78,7 +80,8 @@ final class FileResponses {
         return ResponseEntity.ok()
                 .contentType(MediaType.IMAGE_PNG)
                 .cacheControl(CACHE)
-                .header("X-Content-Type-Options", "nosniff")
+                .header("X-Content-Type-Options", NOSNIFF)
+                .header("Content-Security-Policy", SANDBOX)
                 .body(new FileSystemResource(file.preview()));
     }
 
@@ -101,6 +104,8 @@ final class FileResponses {
 
         return ResponseEntity.ok()
                 .contentType(MediaType.parseMediaType("application/zip"))
+                .header("X-Content-Type-Options", NOSNIFF)
+                .header("Content-Security-Policy", SANDBOX)
                 .header(HttpHeaders.CONTENT_DISPOSITION, ContentDisposition.attachment()
                         .filename(plan.name(), StandardCharsets.UTF_8).build().toString())
                 .body(body);

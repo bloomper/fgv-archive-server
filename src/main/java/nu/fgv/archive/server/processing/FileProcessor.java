@@ -18,7 +18,6 @@ package nu.fgv.archive.server.processing;
 
 import lombok.extern.slf4j.Slf4j;
 import net.javacrumbs.shedlock.spring.annotation.SchedulerLock;
-import nu.fgv.archive.server.config.ArchiveProperties;
 import nu.fgv.archive.server.file.ArchiveFile;
 import nu.fgv.archive.server.file.ArchiveFileRepository;
 import nu.fgv.archive.server.file.FilePage;
@@ -27,7 +26,6 @@ import nu.fgv.archive.server.file.FileStorage;
 import nu.fgv.archive.server.file.FileTypes;
 import nu.fgv.archive.server.file.ProcessingStatus;
 import org.springframework.data.domain.PageRequest;
-import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionTemplate;
 
@@ -36,11 +34,10 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Objects;
-import java.util.concurrent.TimeUnit;
 
 /**
- * Gives new files their page count, searchable text and first-page preview, one at a time, in the worker container only
- * ({@code archive.worker.enabled}). Each file is read outside a transaction; a file that fails three times, or that
+ * Gives new files their page count, searchable text and first-page preview, one at a time; {@link FileProcessingSchedule}
+ * runs it in the worker container only ({@code archive.worker.enabled}). Each file is read outside a transaction; a file that fails three times, or that
  * breaks the reader itself (an {@link Error} such as running out of memory), is marked failed and can still be
  * downloaded. A result is dropped when the file's content was replaced while it was read. The {@code FILE_BACKFILL} job
  * queues failed and incomplete files again.
@@ -56,30 +53,20 @@ public class FileProcessor {
     private static final int BATCH = 20;
     private static final int MAX_ERROR = 1000;
 
-    private final boolean enabled;
     private final ArchiveFileRepository repository;
     private final FilePageRepository pageRepository;
     private final FileStorage storage;
     private final ContentReader reader;
     private final TransactionTemplate transactionTemplate;
 
-    public FileProcessor(final ArchiveProperties properties, final ArchiveFileRepository repository,
+    public FileProcessor(final ArchiveFileRepository repository,
                          final FilePageRepository pageRepository, final FileStorage storage, final ContentReader reader,
                          final TransactionTemplate transactionTemplate) {
-        this.enabled = properties.worker().enabled();
         this.repository = repository;
         this.pageRepository = pageRepository;
         this.storage = storage;
         this.reader = reader;
         this.transactionTemplate = transactionTemplate;
-    }
-
-    @Scheduled(fixedDelay = 5, initialDelay = 10, timeUnit = TimeUnit.SECONDS)
-    @SchedulerLock(name = "file-processing", lockAtMostFor = "PT30M")
-    public void tick() {
-        if (enabled) {
-            processPending();
-        }
     }
 
     /**

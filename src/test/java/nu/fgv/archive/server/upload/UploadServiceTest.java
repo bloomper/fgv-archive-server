@@ -21,6 +21,8 @@ import nu.fgv.archive.server.TestClock;
 import nu.fgv.archive.server.file.FileStorage;
 import nu.fgv.archive.server.settings.Settings;
 import nu.fgv.archive.server.settings.SettingsService;
+import nu.fgv.archive.server.user.Caller;
+import nu.fgv.archive.server.user.Role;
 import nu.fgv.archive.server.util.error.BadRequestException;
 import nu.fgv.archive.server.util.error.ConflictException;
 import nu.fgv.archive.server.util.error.ResourceNotFoundException;
@@ -41,6 +43,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -140,6 +143,19 @@ class UploadServiceTest {
         assertThatThrownBy(() -> service.get(TestCallers.admin(), session.getId())).isInstanceOf(ResourceNotFoundException.class);
         assertThatThrownBy(() -> service.terminate(TestCallers.admin(), session.getId())).isInstanceOf(ResourceNotFoundException.class);
         assertThat(service.get(TestCallers.editor(), session.getId())).isSameAs(session);
+    }
+
+    @Test
+    void onlyAnEditorGoesOnWithTheirUpload() throws Exception {
+        final UploadSession session = service.create(TestCallers.editor(), 2, "a.pdf");
+        // The same person after losing EDITOR
+        final Caller demoted = new Caller(TestCallers.editor().subject(), "erik@archive.test", "Erik", null, Set.of(Role.USER));
+
+        assertThatThrownBy(() -> service.get(demoted, session.getId())).isInstanceOf(AccessDeniedException.class);
+        assertThatThrownBy(() -> service.append(demoted, session.getId(), 0, new ByteArrayInputStream(new byte[]{1})))
+                .isInstanceOf(AccessDeniedException.class);
+        assertThatThrownBy(() -> service.claim(session.getId(), demoted)).isInstanceOf(AccessDeniedException.class);
+        assertThat(session.getOffset()).isZero();
     }
 
     @Test

@@ -33,6 +33,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import java.time.Clock;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
@@ -50,6 +51,11 @@ public class AccessRequestService {
 
     static final int MAX_REASON = 2000;
     static final int MAX_FILES = 200;
+    /**
+     * The most requests a user may make in {@link #RATE_WINDOW}, since each one emails every editor.
+     */
+    static final int MAX_PER_WINDOW = 10;
+    static final Duration RATE_WINDOW = Duration.ofHours(1);
 
     private final AccessRequestRepository repository;
     private final ArchiveFileRepository fileRepository;
@@ -82,6 +88,9 @@ public class AccessRequestService {
         }
         if (input.fileIds().isEmpty() || input.fileIds().size() > MAX_FILES) {
             throw new BadRequestException("error.accessRequest.files");
+        }
+        if (repository.countByUserSubjectAndCreatedAtAfter(caller.subject(), clock.instant().minus(RATE_WINDOW)) >= MAX_PER_WINDOW) {
+            throw new BadRequestException("error.accessRequest.tooMany");
         }
 
         final AccessRequest request = new AccessRequest();

@@ -160,6 +160,8 @@ class FileHttpApiTest extends AbstractApiTest {
                 .perform(get("/api/files/{id}/preview", uuid(1)).header(HttpHeaders.AUTHORIZATION, BEARER))
                 .andExpect(status().isOk())
                 .andExpect(header().string(HttpHeaders.CONTENT_TYPE, "image/png"))
+                .andExpect(header().string("Content-Security-Policy", "sandbox; default-src 'none'"))
+                .andExpect(header().string("X-Content-Type-Options", "nosniff"))
                 .andDo(document("file-preview-get", fileId, secureRequestHeaders, security(List.of("USER", "EDITOR for restricted files"))));
     }
 
@@ -172,6 +174,8 @@ class FileHttpApiTest extends AbstractApiTest {
                 .perform(get("/api/versions/{id}/parts/zip", uuid(2)).queryParam("instrumentIds", uuid(11).toString()).queryParam("transpositions", "B_FLAT")
                         .header(HttpHeaders.AUTHORIZATION, BEARER))
                 .andExpect(status().isOk())
+                .andExpect(header().string("Content-Security-Policy", "sandbox; default-src 'none'"))
+                .andExpect(header().string("X-Content-Type-Options", "nosniff"))
                 .andDo(document("version-parts-zip-get",
                         pathParameters(parameterWithName("id").description("The id of the arrangement version")),
                         queryParameters(

@@ -36,4 +36,6 @@ public interface AccessRequestRepository extends JpaRepository<AccessRequest, Lo
     List<AccessRequest> findAllByOrderByCreatedAtDesc();
 
     List<AccessRequest> findByCreatedAtBefore(Instant before);
+
+    long countByUserSubjectAndCreatedAtAfter(String userSubject, Instant after);
 }

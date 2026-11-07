@@ -34,15 +34,23 @@ import org.springframework.graphql.data.method.annotation.Argument;
 import org.springframework.graphql.data.method.annotation.BatchMapping;
 import org.springframework.graphql.data.method.annotation.MutationMapping;
 import org.springframework.graphql.data.method.annotation.QueryMapping;
+import org.dataloader.DataLoader;
 import org.springframework.graphql.data.method.annotation.SchemaMapping;
+import org.springframework.graphql.execution.BatchLoaderRegistry;
 import org.springframework.stereotype.Controller;
+import reactor.core.publisher.Mono;
 
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import java.util.function.BiFunction;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 
 /**
  * GraphQL for manuscripts, arrangements and versions. A thin adapter: {@link MaterialService} decides access.
@@ -59,11 +67,40 @@ public class MaterialGraphqlApi {
     private final NumberService numberService;
 
     public MaterialGraphqlApi(final MaterialService materialService, final FileService fileService, final SpexService spexService,
-                              final NumberService numberService) {
+                              final NumberService numberService, final BatchLoaderRegistry registry) {
         this.materialService = materialService;
         this.fileService = fileService;
         this.spexService = spexService;
         this.numberService = numberService;
+        // Fields with arguments can't be @BatchMapping; these loaders batch them per distinct arguments instead, so a
+        // page of versions or arrangements costs the same few queries whatever its size. A DataLoader parameter whose
+        // value type is generic is found by the parameter's name.
+        registry.<Keyed<PartFilter>, List<FileDto>>forName("versionFiles")
+                .registerMappedBatchLoader((keys, _) -> Mono.fromCallable(() -> byArguments(keys, fileService::filesOf)));
+        registry.<Keyed<VersionsArguments>, List<VersionDto>>forName("arrangementVersions")
+                .registerMappedBatchLoader((keys, _) -> Mono.fromCallable(() -> byArguments(keys,
+                        (ids, arguments) -> materialService.versionsOf(ids, arguments.key(), arguments.parts()))));
+    }
+
+    /**
+     * A parent's id and a field's arguments, the key of a batch loader for a field with arguments.
+     */
+    record Keyed<A>(UUID id, A arguments) {
+    }
+
+    record VersionsArguments(@Nullable MusicKey key, PartFilter parts) {
+    }
+
+    /**
+     * Looks up the keys once per distinct arguments; usually every key of a batch has the same.
+     */
+    static <A, V> Map<Keyed<A>, V> byArguments(final Set<Keyed<A>> keys, final BiFunction<List<UUID>, A, Map<UUID, V>> lookup) {
+        final Map<A, List<UUID>> byArguments = keys.stream()
+                .collect(Collectors.groupingBy(Keyed::arguments, LinkedHashMap::new, Collectors.mapping(Keyed::id, Collectors.toList())));
+        final Map<Keyed<A>, V> result = new HashMap<>();
+
+        byArguments.forEach((arguments, ids) -> lookup.apply(ids, arguments).forEach((id, value) -> result.put(new Keyed<>(id, arguments), value)));
+        return result;
     }
 
     private static <K, T> Map<K, @Nullable T> mapped(final List<K> keys, final Function<K, @Nullable UUID> id,
@@ -118,9 +155,10 @@ public class MaterialGraphqlApi {
      * The versions, narrowed to a key and to versions with matching parts when asked.
      */
     @SchemaMapping(typeName = "Arrangement", field = "versions")
-    public List<VersionDto> arrangementVersions(final ArrangementDto arrangement, @Argument final @Nullable MusicKey key,
-                                                @Argument final @Nullable PartFilter parts) {
-        return materialService.versionsOf(List.of(arrangement.id()), key, PartFilter.orNone(parts)).get(arrangement.id());
+    public CompletableFuture<List<VersionDto>> arrangementVersions(final ArrangementDto arrangement, @Argument final @Nullable MusicKey key,
+                                                                   @Argument final @Nullable PartFilter parts,
+                                                                   final DataLoader<Keyed<VersionsArguments>, List<VersionDto>> arrangementVersions) {
+        return arrangementVersions.load(new Keyed<>(arrangement.id(), new VersionsArguments(key, PartFilter.orNone(parts))));
     }
 
     @SchemaMapping(typeName = "Arrangement", field = "partsVersion")
@@ -147,8 +185,9 @@ public class MaterialGraphqlApi {
      * The files, narrowed to the parts of some instruments or transpositions when asked.
      */
     @SchemaMapping(typeName = "Version", field = "files")
-    public List<FileDto> versionFiles(final VersionDto version, @Argument final @Nullable PartFilter parts) {
-        return fileService.filesOf(List.of(version.id()), PartFilter.orNone(parts)).get(version.id());
+    public CompletableFuture<List<FileDto>> versionFiles(final VersionDto version, @Argument final @Nullable PartFilter parts,
+                                                         final DataLoader<Keyed<PartFilter>, List<FileDto>> versionFiles) {
+        return versionFiles.load(new Keyed<>(version.id(), PartFilter.orNone(parts)));
     }
 
     @MutationMapping

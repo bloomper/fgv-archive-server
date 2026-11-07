@@ -264,7 +264,11 @@ public class FileService {
         setContent(file, upload, detected);
         file.setPosition(version.getFiles().stream().mapToInt(ArchiveFile::getPosition).max().orElse(0) + 1);
         repository.save(file);
-        storage.store(upload, storage.file(version.getUuid(), file));
+
+        final Path target = storage.file(version.getUuid(), file);
+
+        storage.store(upload, target);
+        returnOnRollback(target, upload);
         uploadService.release(input.uploadId());
         auditService.record("CREATE", "FILE", file.getUuid(), "Laddade upp %s till %s".formatted(file.getTitle(), version.getLabel()));
         return FileDtos.toDto(file, true, true);
@@ -308,7 +312,7 @@ public class FileService {
 
         storage.store(upload, staged);
         uploadService.release(uploadId);
-        swapAfterCommit(staged, target, old, preview);
+        swapAfterCommit(staged, target, old, preview, upload);
         auditService.record("UPDATE", "FILE", file.getUuid(), "Bytte innehållet i filen " + file.getTitle());
         return FileDtos.toDto(file, true, true);
     }
@@ -369,9 +373,11 @@ public class FileService {
 
     /**
      * Moves replaced content into place once the transaction has committed, deleting the old content (when its name
-     * differs) and the old preview; on a rollback the staged content is deleted and the old stays.
+     * differs) and the old preview; on a rollback the staged content goes back to its upload, which the rollback keeps,
+     * and the old stays.
      */
-    private static void swapAfterCommit(final Path staged, final Path target, final Path old, final Path preview) {
+    static void swapAfterCommit(final Path staged, final Path target, final Path old, final Path preview,
+                                        final Path upload) {
         final Runnable swap = () -> {
             try {
                 Files.move(staged, target, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
@@ -395,10 +401,32 @@ public class FileService {
                     if (status == STATUS_COMMITTED) {
                         swap.run();
                     } else {
-                        Files.deleteIfExists(staged);
+                        Files.move(staged, upload, StandardCopyOption.REPLACE_EXISTING);
                     }
                 } catch (final IOException | RuntimeException e) {
                     log.warn("Could not move replaced content into place: {}", e.getMessage());
+                }
+            }
+        });
+    }
+
+    /**
+     * Moves a new file's content back to its upload when the transaction rolls back, so that no content is left in
+     * {@code files/} without a file, and the upload, whose session the rollback keeps, can be used again.
+     */
+    static void returnOnRollback(final Path stored, final Path upload) {
+        if (!TransactionSynchronizationManager.isSynchronizationActive()) {
+            return;
+        }
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCompletion(final int status) {
+                if (status != STATUS_COMMITTED) {
+                    try {
+                        Files.move(stored, upload, StandardCopyOption.REPLACE_EXISTING);
+                    } catch (final IOException | RuntimeException e) {
+                        log.warn("Could not return the content of a file that was not added: {}", e.getMessage());
+                    }
                 }
             }
         });

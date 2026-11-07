@@ -113,7 +113,8 @@ archive:
   data:
     import-sample-data: ${API_IMPORT_SAMPLE_DATA:false}
     sample-data-size: ${API_SAMPLE_DATA_SIZE:small}
-    sample-user-password: ${SAMPLE_USER_PASSWORD:s3cr3t-s3cr3t}
+    # Needed only to import sample data; the local profile has a development value
+    sample-user-password: ${SAMPLE_USER_PASSWORD:}
 
 ---
 spring:
@@ -140,6 +141,9 @@ management:
     port: 9007
 
 archive:
+  data:
+    # For development only; every other environment sets SAMPLE_USER_PASSWORD
+    sample-user-password: ${SAMPLE_USER_PASSWORD:s3cr3t-s3cr3t}
   keycloak:
     url: https://auth.fgv.local.nu:8443/auth
   worker:

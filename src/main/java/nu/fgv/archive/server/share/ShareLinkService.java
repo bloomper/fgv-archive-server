@@ -159,11 +159,18 @@ public class ShareLinkService {
      */
     @Transactional(readOnly = true)
     public Map<UUID, List<FileDownloads>> downloads(final Collection<UUID> linkIds) {
-        callerService.current().requireEditor();
+        final Caller caller = callerService.current();
+
+        caller.requireEditor();
 
         final Map<Long, UUID> links = new HashMap<>();
 
-        linkIds.forEach(id -> repository.findByUuid(id).ifPresent(link -> links.put(link.getId(), link.getUuid())));
+        if (!linkIds.isEmpty()) {
+            // Editors see the downloads of their own links only, as they see only those links
+            repository.findByUuidIn(linkIds).stream()
+                    .filter(link -> caller.isAdmin() || link.getCreatedBy().equals(caller.subject()))
+                    .forEach(link -> links.put(link.getId(), link.getUuid()));
+        }
 
         final Map<UUID, List<FileDownloads>> result = new LinkedHashMap<>();
 
@@ -417,10 +424,20 @@ public class ShareLinkService {
         final Map<UUID, List<ArchiveFile>> files = sharedFiles(link);
         final List<MaterialVersion> versions = versionRepository.findByUuidIn(files.keySet());
         final Map<UUID, SpexNumber> numbers = new HashMap<>();
+        final List<UUID> numberIds = versions.stream().filter(version -> version.getArrangement() != null)
+                .map(version -> Objects.requireNonNull(version.getArrangement()).getNumberId()).distinct().toList();
+        final Map<UUID, SpexNumber> numbersById = new HashMap<>();
 
-        versions.stream().filter(version -> version.getArrangement() != null)
-                .forEach(version -> numberRepository.findByUuid(Objects.requireNonNull(version.getArrangement()).getNumberId())
-                        .ifPresent(number -> numbers.put(version.getUuid(), number)));
+        if (!numberIds.isEmpty()) {
+            numberRepository.findByUuidIn(numberIds).forEach(number -> numbersById.put(number.getUuid(), number));
+        }
+        for (final MaterialVersion version : versions) {
+            final SpexNumber number = version.getArrangement() == null ? null : numbersById.get(version.getArrangement().getNumberId());
+
+            if (number != null) {
+                numbers.put(version.getUuid(), number);
+            }
+        }
 
         final Set<UUID> spexIds = new LinkedHashSet<>();
 

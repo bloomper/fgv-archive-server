@@ -34,6 +34,8 @@ public interface ArrangementRepository extends JpaRepository<Arrangement, Long> 
 
     Optional<Arrangement> findByUuid(UUID uuid);
 
+    List<Arrangement> findByUuidIn(Collection<UUID> uuids);
+
     Optional<Arrangement> findByNumberId(UUID numberId);
 
     List<Arrangement> findByNumberIdIn(Collection<UUID> numberIds);

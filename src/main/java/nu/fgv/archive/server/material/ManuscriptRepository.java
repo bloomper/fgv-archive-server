@@ -34,6 +34,8 @@ public interface ManuscriptRepository extends JpaRepository<Manuscript, Long> {
 
     Optional<Manuscript> findByUuid(UUID uuid);
 
+    List<Manuscript> findByUuidIn(Collection<UUID> uuids);
+
     List<Manuscript> findBySpexIdInOrderByIdAsc(Collection<UUID> spexIds);
 
     List<Manuscript> findByTrashedAtIsNotNullOrderByTrashedAtDesc();

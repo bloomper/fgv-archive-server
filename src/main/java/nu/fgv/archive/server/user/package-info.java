@@ -15,7 +15,7 @@
  */
 
 /**
- * The people who use Spexarkivet, as known from their Keycloak login, and the caller of the current request.
+ * The people who use Spexarkiv, as known from their Keycloak login, and the caller of the current request.
  */
 @NullMarked
 package nu.fgv.archive.server.user;

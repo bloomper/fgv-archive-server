@@ -123,7 +123,7 @@ public class SampleDataImporter {
     static final String ADMIN = "admin@fgv.nu";
     static final String EDITOR = "editor@fgv.nu";
     static final String USER = "user@fgv.nu";
-    // Shared by Spexify's, Spexflix's and Spexarkivet's sample data: an account without access
+    // Shared by Spexify's, Spexflix's and Spexarkiv's sample data: an account without access
     static final String NO_ACCESS = "no-access@fgv.nu";
     static final String TRUMPET = "00000000-0000-7000-8000-00000000c00b";
     static final String ALTO_SAX = "00000000-0000-7000-8000-00000000c008";

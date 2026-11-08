@@ -138,7 +138,7 @@ tasks.withType(JavaCompile).configureEach {
 javadoc {
     source = sourceSets.main.allJava
     destinationDir = layout.buildDirectory.dir('docs/javadoc').get().asFile
-    title = 'Spexarkivet Server JavaDoc'
+    title = 'Spexarkiv Server JavaDoc'
     classpath = sourceSets.main.compileClasspath + sourceSets.main.runtimeClasspath
     options {
         encoding 'UTF-8'

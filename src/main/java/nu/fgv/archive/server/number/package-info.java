@@ -15,7 +15,7 @@
  */
 
 /**
- * The numbers of the spex, kept by Spexarkivet's editors until Spexipedia takes them over.
+ * The numbers of the spex, kept by Spexarkiv's editors until Spexipedia takes them over.
  */
 @NullMarked
 package nu.fgv.archive.server.number;

@@ -1,4 +1,4 @@
-= Spexarkivet Server HTTP API Guide
+= Spexarkiv Server HTTP API Guide
 :doctype: book
 :icons: font
 :source-highlighter: highlightjs
@@ -10,7 +10,7 @@ xref:index.adoc[Back to start page]
 [[introduction]]
 == Introduction
 
-Spexarkivet Server's API is xref:graphql-api-guide.adoc[GraphQL].
+Spexarkiv Server's API is xref:graphql-api-guide.adoc[GraphQL].
 A few endpoints are plain HTTP, for what GraphQL does not suit: files, previews and zips, the same through share links, and resumable uploads.
 Like GraphQL, they are thin adapters over the services, which decide who may do what.
 
@@ -99,7 +99,7 @@ The share link endpoints, under `/api/share/<token>/`, need no token: the share 
 [[resources]]
 == Resources
 
-Spexarkivet Server uses the following resources:
+Spexarkiv Server uses the following resources:
 
 * xref:resources/file.adoc[File]
 * xref:resources/share.adoc[Share link]

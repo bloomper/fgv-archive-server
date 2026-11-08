@@ -1,4 +1,4 @@
-= Spexarkivet Server GraphQL API Guide
+= Spexarkiv Server GraphQL API Guide
 :doctype: book
 :icons: font
 :source-highlighter: highlightjs
@@ -42,7 +42,7 @@ Note that invalid input according to the schema will be detected and reported as
 [[roles]]
 == Roles
 
-Spexarkivet Server uses the following roles, which are client roles on ``fgv-archive`` in Keycloak:
+Spexarkiv Server uses the following roles, which are client roles on ``fgv-archive`` in Keycloak:
 
 |===
 |Role|Description

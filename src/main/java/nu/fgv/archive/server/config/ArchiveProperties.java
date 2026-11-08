@@ -22,7 +22,7 @@ import java.nio.file.Path;
 import java.util.List;
 
 /**
- * Spexarkivet's settings under {@code archive.*}.
+ * Spexarkiv's settings under {@code archive.*}.
  *
  * @param timeZone the zone the jobs' schedules and "today" are in
  * @param webUrl   the web's address, for the links in emails

@@ -99,7 +99,7 @@ public class AuditService {
 
         entry.setAt(clock.instant());
         entry.setActorSubject(caller == null ? "system" : caller.subject());
-        entry.setActorName(caller == null ? "Spexarkivet" : caller.displayName());
+        entry.setActorName(caller == null ? "Spexarkiv" : caller.displayName());
         entry.setAction(action);
         entry.setEntityType(entityType);
         entry.setEntityId(entityId == null ? null : entityId.toString());

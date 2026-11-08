@@ -31,7 +31,7 @@ import org.jspecify.annotations.Nullable;
 import java.util.UUID;
 
 /**
- * A number (song) of a spex, in the order of the show. Kept by Spexarkivet's editors until Spexipedia takes the numbers
+ * A number (song) of a spex, in the order of the show. Kept by Spexarkiv's editors until Spexipedia takes the numbers
  * over with the same ids; arrangements refer to it by its id.
  *
  * @author Anders Jacobsson

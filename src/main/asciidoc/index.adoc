@@ -1,4 +1,4 @@
-= Spexarkivet Server
+= Spexarkiv Server
 :doctype: book
 :icons: font
 :source-highlighter: highlightjs
@@ -6,9 +6,9 @@
 [[introduction]]
 == Introduction
 
-Spexarkivet Server is the backend of Spexarkivet, FGV's archive of the spex' manuscripts and musical arrangements.
+Spexarkiv Server is the backend of Spexarkiv, FGV's archive of the spex' manuscripts and musical arrangements.
 
-The purpose of this documentation is to provide details on how to develop within Spexarkivet Server and how to integrate Spexarkivet Server into another application, e.g. a web application.
+The purpose of this documentation is to provide details on how to develop within Spexarkiv Server and how to integrate Spexarkiv Server into another application, e.g. a web application.
 
 [[getting_started]]
 == Getting started

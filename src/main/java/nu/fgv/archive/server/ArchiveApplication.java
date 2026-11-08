@@ -23,7 +23,7 @@ import org.springframework.boot.security.autoconfigure.SecurityAutoConfiguration
 import org.springframework.boot.security.autoconfigure.actuate.web.servlet.ManagementWebSecurityAutoConfiguration;
 
 /**
- * Spexarkivet, FGV's archive of the spex' manuscripts and musical arrangements, with their versions and files.
+ * Spexarkiv, FGV's archive of the spex' manuscripts and musical arrangements, with their versions and files.
  *
  * @author Anders Jacobsson
  * @since 1.0

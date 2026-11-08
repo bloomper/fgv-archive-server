@@ -103,7 +103,7 @@ public final class SampleFiles {
                     if (page == 1) {
                         text(content, bold, 28, 50, 600, title);
                         text(content, regular, 16, 50, 560, "Manus, " + version);
-                        text(content, regular, 12, 50, 530, "Exempeldata, genererad av Spexarkivet");
+                        text(content, regular, 12, 50, 530, "Exempeldata, genererad av Spexarkiv");
                     } else {
                         text(content, bold, 14, 50, 760, "Akt %d, scen %d".formatted((page - 2) / 10 + 1, (page - 2) % 10 + 1));
                         for (int line = 0; line < 24; line++) {

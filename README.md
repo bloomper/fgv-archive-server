@@ -1,26 +1,26 @@
-# Spexarkivet Server
+# Spexarkiv Server
 
 ## Overview
 
-Spexarkivet Server is the backend of Spexarkivet, FGV's archive of the spex' manuscripts and musical arrangements,
+Spexarkiv Server is the backend of Spexarkiv, FGV's archive of the spex' manuscripts and musical arrangements,
 with their versions and files. It is a Spring Boot application with a GraphQL API and plain HTTP endpoints for files
 (with byte ranges, for reading PDFs in the browser), previews, zips, share links and resumable (tus) uploads. A worker,
 the same image with `API_WORKER_ENABLED=true`, reads the files' page counts and text for search with PDFBox and Apache
 Tika and renders their first-page previews. It is backed by MySQL, a storage folder and Keycloak ([fgv-keycloak][1]) for
-authentication, and reads spex from Spexregister. [Spexarkivet Web][2] is its frontend and [fgv-archive-deploy][3] runs
+authentication, and reads spex from Spexregister. [Spexarkiv Web][2] is its frontend and [fgv-archive-deploy][3] runs
 it on a server.
 
 The product spec is in [fgv-archive-spec][4].
 
 ## Learning more
 
-To learn more about Spexarkivet Server, please consult the reference documentation, which is served at `/docs`. When
+To learn more about Spexarkiv Server, please consult the reference documentation, which is served at `/docs`. When
 running locally, the reference documentation is available [here][10]. Its source is in `src/main/asciidoc`, and
 `getting-started.adoc` describes how to run the whole stack locally with `docker compose`.
 
 ## Building from source
 
-You will need Java 25 or later to build Spexarkivet Server, and Docker for the integration tests. It is built using
+You will need Java 25 or later to build Spexarkiv Server, and Docker for the integration tests. It is built using
 [Gradle][5]:
 
 ```
@@ -47,13 +47,13 @@ The build fails if the tag doesn't match the version or if `X.Y.Z` is already on
 
 Contributors to this project agree to uphold its [code of conduct][6].
 
-You can contribute to Spexarkivet Server by:
+You can contribute to Spexarkiv Server by:
 
 - Opening a [pull request][7]. Please see the [contributor guidelines][8] for details
 
 ## License
 
-Spexarkivet Server is open source software released under the [Apache 2.0 license][9].
+Spexarkiv Server is open source software released under the [Apache 2.0 license][9].
 
 [1]: https://github.com/bloomper/fgv-keycloak
 [2]: https://github.com/bloomper/fgv-archive-web

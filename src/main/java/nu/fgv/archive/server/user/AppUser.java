@@ -31,7 +31,7 @@ import java.time.Instant;
 import java.util.UUID;
 
 /**
- * Someone who has used Spexarkivet, copied from their login: the Keycloak subject, username and display name. Kept
+ * Someone who has used Spexarkiv, copied from their login: the Keycloak subject, username and display name. Kept
  * until 36 months after their last login.
  *
  * @author Anders Jacobsson

@@ -240,7 +240,7 @@ type Spex {
     arrangementCount: Int!
 }
 
-"A song of a spex, kept by Spexarkivet's editors until Spexipedia takes the numbers over with the same ids."
+"A song of a spex, kept by Spexarkiv's editors until Spexipedia takes the numbers over with the same ids."
 type Number {
     id: ID!
     spexId: ID!

@@ -89,12 +89,14 @@ dependencies {
     // Previews, page counts and the text of PDFs, page by page; the sample data's PDFs
     implementation 'org.apache.pdfbox:pdfbox:3.0.8'
     // The real type of every upload, and the text of source files (DOCX, ODT, RTF, TXT, MusicXML)
-    implementation platform('org.apache.tika:tika-bom:3.3.3')
+    implementation platform('org.apache.tika:tika-bom:4.2.0')
     implementation 'org.apache.tika:tika-core'
     implementation 'org.apache.tika:tika-parser-microsoft-module'
     implementation 'org.apache.tika:tika-parser-miscoffice-module'
     implementation 'org.apache.tika:tika-parser-text-module'
     implementation 'org.apache.tika:tika-parser-xml-module'
+    // The sample data's DOCX is written with POI's XWPF, whose schema classes Tika 4 no longer brings
+    implementation 'org.apache.poi:poi-ooxml-lite:5.5.1'
 
     annotationProcessor 'org.projectlombok:lombok'
     annotationProcessor 'org.springframework.boot:spring-boot-configuration-processor'

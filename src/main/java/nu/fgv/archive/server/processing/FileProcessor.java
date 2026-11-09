@@ -90,12 +90,12 @@ public class FileProcessor {
     /**
      * Queues failed files, and PDFs without a page count or preview, again; and files whose preview has gone missing,
      * e.g. after a restore without previews.
-     *
-     * @return how many files were queued
+     * <p>
+     * Returns nothing: ShedLock cannot lock a method returning a primitive, as it has no value to return when skipped.
      */
     @SchedulerLock(name = "file-backfill", lockAtMostFor = "PT30M")
-    public int backfill() {
-        return Objects.requireNonNull(transactionTemplate.execute(_ -> {
+    public void backfill() {
+        transactionTemplate.executeWithoutResult(_ -> {
             int queued = repository.requeueIncomplete();
 
             for (final ArchiveFile file : repository.findByProcessingStatusAndHasPreviewTrue(ProcessingStatus.DONE)) {
@@ -106,8 +106,7 @@ public class FileProcessor {
                 }
             }
             log.info("Queued {} files for text and previews", queued);
-            return queued;
-        }));
+        });
     }
 
     private List<Work> next() {

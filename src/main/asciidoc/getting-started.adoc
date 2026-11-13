@@ -213,8 +213,8 @@ The realm is defined by ``realm/fgv.json`` in fgv-keycloak, whose README describ
 Spexarkiv uses its clients ``fgv-archive`` (the web, and Spexarkiv's roles), ``fgv-archive-service`` (spex from Spexregister with its ``MEDIA`` role, and the editors' email addresses) and ``fgv-admin`` (the sample data's users).
 Reading the editors needs ``realm-management``'s ``view-users`` and ``view-clients`` on ``fgv-archive-service``; without ``view-clients`` the emails about access requests go only to the recipients in the settings.
 
-The integration tests import a copy of ``fgv.json``.
-Refresh it with ``./gradlew syncRealm`` from a checkout of ``fgv-keycloak`` two folders up (``../../fgv-keycloak``) after every realm change, and commit it.
+The integration tests import a copy of ``fgv.json`` at ``src/integrationtest/resources/realm/fgv.json``.
+After every realm change, replace it with the new ``realm/fgv.json`` from fgv-keycloak and commit it.
 
 To get a changed ``fgv.json`` into the local Keycloak, run ``docker compose down`` in fgv-infra-deploy's ``local``, empty ``local/.docker/keycloak-mysql/data`` and start it again.
 

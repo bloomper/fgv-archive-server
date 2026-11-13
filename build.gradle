@@ -180,14 +180,6 @@ rootProject.tasks.named("processIntegrationTestResources") {
     duplicatesStrategy = 'include'
 }
 
-tasks.register('syncRealm', Copy) {
-    description = 'Copies fgv-keycloak/realm/fgv.json into the integration test resources'
-    group = 'build setup'
-    // This repository lies in archive/, next to the other FGV repositories' folder
-    from(file('../../fgv-keycloak/realm/fgv.json'))
-    into(file('src/integrationtest/resources/realm'))
-}
-
 jacocoTestReport {
     dependsOn test, integrationTest
     reports {

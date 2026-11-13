@@ -34,6 +34,8 @@ public interface InstrumentRepository extends JpaRepository<Instrument, Long> {
 
     Optional<Instrument> findByUuid(UUID uuid);
 
+    Optional<Instrument> findByTaskId(UUID taskId);
+
     List<Instrument> findAllByOrderByPositionAscIdAsc();
 
     /**

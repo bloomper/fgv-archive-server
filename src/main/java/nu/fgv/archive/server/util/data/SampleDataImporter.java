@@ -54,7 +54,8 @@ import nu.fgv.archive.server.share.ShareLinkRepository;
 import nu.fgv.archive.server.share.ShareLinkService;
 import nu.fgv.archive.server.spex.SpexDto;
 import nu.fgv.archive.server.spex.SpexService;
-import nu.fgv.archive.server.spex.SpexregisterClient;
+import nu.fgv.archive.server.spex.SpexipediaClient;
+import nu.fgv.archive.server.spex.SpexipediaSync;
 import nu.fgv.archive.server.user.AppUser;
 import nu.fgv.archive.server.user.AppUserRepository;
 import nu.fgv.archive.server.util.security.SecurityUtil;
@@ -100,8 +101,8 @@ import java.util.UUID;
 
 /**
  * Replaces everything with sample data at every start while {@code archive.data.import-sample-data} is set (product
- * spec 5.9): the database, the storage folders and the sample users' roles in Keycloak. Built on Spexregister's sample
- * spex, so Spexregister must run with its sample data too. The files are queued for the worker, which reads their text
+ * spec 5.9): the database, the storage folders and the sample users' roles in Keycloak. Built on Spexipedia's sample
+ * spex and numbers, and Spexregister's sample users, so both must run with their sample data too. The files are queued for the worker, which reads their text
  * and renders their previews.
  *
  * @author Anders Jacobsson
@@ -134,16 +135,12 @@ public class SampleDataImporter {
     static final String BASS = "00000000-0000-7000-8000-00000000c013";
     static final String DRUMS = "00000000-0000-7000-8000-00000000c014";
     static final String VOCALS = "00000000-0000-7000-8000-00000000c01e";
-    private static final int SPEXREGISTER_ATTEMPTS = 30;
-    private static final Duration SPEXREGISTER_RETRY_INTERVAL = Duration.ofSeconds(10);
+    private static final int SPEXIPEDIA_ATTEMPTS = 30;
+    private static final Duration SPEXIPEDIA_RETRY_INTERVAL = Duration.ofSeconds(10);
     private static final List<String> TABLES = List.of("audit_entry", "download_log", "access_request_file", "access_request",
             "share_link_file", "share_link_version", "share_link", "file_page", "archive_file", "instrumentation_entry",
-            "material_version", "arrangement", "manuscript", "number", "upload_session", "app_user");
-    private static final List<String[]> NUMBERS = List.of(
-            new String[]{"Ouvertyr", null}, new String[]{"Öppningskören", "Hello, Dolly!"},
-            new String[]{"Kärleksduetten", "Something stupid (Frank & Nancy Sinatra)"}, new String[]{"Hovets klagan", "Yesterday (The Beatles)"},
-            new String[]{"Rövarvisan", "Rövarvisan (Kardemummastaden)"}, new String[]{"Ödets nummer", "Dancing Queen (ABBA)"},
-            new String[]{"Drottningens hämnd", "Der Hölle Rache (Mozart)"}, new String[]{"Finalen", "Final Countdown (Europe)"});
+            "material_version", "arrangement", "manuscript", "number", "spex_character", "spex", "spexipedia_task", "spexipedia_task_category",
+            "spexipedia_category", "upload_session", "app_user");
     private static final List<MusicKey> KEYS = List.of(new MusicKey(Tonic.C, Mode.MAJOR), new MusicKey(Tonic.G, Mode.MAJOR),
             new MusicKey(Tonic.F, Mode.MAJOR), new MusicKey(Tonic.D, Mode.MINOR), new MusicKey(Tonic.B_FLAT, Mode.MAJOR),
             new MusicKey(Tonic.F_SHARP, Mode.MINOR));
@@ -167,7 +164,7 @@ public class SampleDataImporter {
     private final Environment environment;
     private final JdbcTemplate jdbcTemplate;
     private final TransactionTemplate transactionTemplate;
-    private final SpexregisterClient spexregisterClient;
+    private final SpexipediaSync spexipediaSync;
     private final SpexService spexService;
     private final Keycloak keycloak;
     private final FileStorage storage;
@@ -188,7 +185,7 @@ public class SampleDataImporter {
 
     @SuppressWarnings("java:S107")
     public SampleDataImporter(final ArchiveProperties properties, final Environment environment, final JdbcTemplate jdbcTemplate,
-                              final TransactionTemplate transactionTemplate, final SpexregisterClient spexregisterClient,
+                              final TransactionTemplate transactionTemplate, final SpexipediaSync spexipediaSync,
                               final SpexService spexService, @Qualifier(KeycloakConfig.ADMIN) final Keycloak keycloak,
                               final FileStorage storage, final FileTypes types, final AppUserRepository userRepository,
                               final SpexNumberRepository numberRepository, final ManuscriptRepository manuscriptRepository,
@@ -201,7 +198,7 @@ public class SampleDataImporter {
         this.environment = environment;
         this.jdbcTemplate = jdbcTemplate;
         this.transactionTemplate = transactionTemplate;
-        this.spexregisterClient = spexregisterClient;
+        this.spexipediaSync = spexipediaSync;
         this.spexService = spexService;
         this.keycloak = keycloak;
         this.storage = storage;
@@ -268,8 +265,8 @@ public class SampleDataImporter {
             return null;
         });
         storage.wipe();
-        waitForSpexregister();
-        spexService.refresh();
+        jdbcTemplate.update("UPDATE spexipedia_sync SET cursor_value = NULL, applied = 0 WHERE id = 1");
+        readSpexipedia();
 
         final RealmResource realm = keycloak.realm(properties.keycloak().realm());
         final Map<String, AppUser> users = NotificationSuspender.whileSuspended(realm, () -> createUsers(realm));
@@ -298,23 +295,27 @@ public class SampleDataImporter {
         log.info("Imported sample data in {} s", Duration.ofNanos(System.nanoTime() - started).toSeconds());
     }
 
-    private void waitForSpexregister() {
+    /**
+     * Reads Spexipedia's change feed from the start: its spex, numbers, characters and instruments.
+     */
+    private void readSpexipedia() {
         for (int attempt = 1; ; attempt++) {
             try {
-                if (spexregisterClient.allSpex().isEmpty()) {
-                    throw new IllegalStateException("Spexregister has no spex; import its sample data first");
+                spexipediaSync.pull(true);
+                if (spexService.all().isEmpty()) {
+                    throw new IllegalStateException("Spexipedia has no spex; import its sample data first");
                 }
                 return;
-            } catch (final SpexregisterClient.SpexregisterCallException e) {
-                if (attempt == SPEXREGISTER_ATTEMPTS) {
-                    throw new IllegalStateException("Spexregister is unavailable, so sample data cannot be imported", e);
+            } catch (final SpexipediaClient.SpexipediaCallException e) {
+                if (attempt == SPEXIPEDIA_ATTEMPTS) {
+                    throw new IllegalStateException("Spexipedia is unavailable, so sample data cannot be imported", e);
                 }
-                log.info("Waiting for Spexregister ({}/{})", attempt, SPEXREGISTER_ATTEMPTS);
+                log.info("Waiting for Spexipedia ({}/{})", attempt, SPEXIPEDIA_ATTEMPTS);
                 try {
-                    Thread.sleep(SPEXREGISTER_RETRY_INTERVAL);
+                    Thread.sleep(SPEXIPEDIA_RETRY_INTERVAL);
                 } catch (final InterruptedException interrupted) {
                     Thread.currentThread().interrupt();
-                    throw new IllegalStateException("Interrupted while waiting for Spexregister", interrupted);
+                    throw new IllegalStateException("Interrupted while waiting for Spexipedia", interrupted);
                 }
             }
         }
@@ -423,12 +424,8 @@ public class SampleDataImporter {
             final String title = Objects.requireNonNullElse(spex.title(), "Spexet");
             final List<SpexDto> revivals = spexService.revivals(List.of(spex.id())).get(spex.id());
             final SpexDto revival = revivals.isEmpty() ? null : revivals.getFirst();
-            final List<SpexNumber> numbers = createNumbers(spex.id(), index, large ? 4 : 6);
-
-            // A revival with numbers of its own every other time; else it shows its original's
-            if (revival != null && index % 2 == 0) {
-                createNumbers(revival.id(), index + 1, large ? 3 : 4);
-            }
+            final List<SpexNumber> all = numberRepository.inShowOrder(spex.id(), null);
+            final List<SpexNumber> numbers = all.subList(0, Math.min(all.size(), large ? 4 : 6));
             if (index % 5 != 4) {
                 createManuscript(index, spex, revival, title, large, shared, work);
             }
@@ -444,25 +441,6 @@ public class SampleDataImporter {
         } catch (final IOException e) {
             throw new UncheckedIOException(e);
         }
-    }
-
-    private List<SpexNumber> createNumbers(final UUID spexId, final int index, final int count) {
-        final List<SpexNumber> numbers = new ArrayList<>();
-
-        for (int n = 0; n < count; n++) {
-            final String[] sample = NUMBERS.get((index + n) % NUMBERS.size());
-            final SpexNumber number = new SpexNumber();
-
-            number.setUuid(id("number-" + spexId + "-" + n));
-            number.setSpexId(spexId);
-            number.setPosition(n + 1);
-            number.setTitle(sample[0]);
-            number.setOriginalSong(sample[1]);
-            number.setLyricist(LYRICISTS.get((index + n) % LYRICISTS.size()));
-            number.setComposer(sample[1] == null ? "Fredrik Falk" : null);
-            numbers.add(numberRepository.save(number));
-        }
-        return numbers;
     }
 
     private Manuscript manuscript(final SpexDto spex, final String title, final String key) {

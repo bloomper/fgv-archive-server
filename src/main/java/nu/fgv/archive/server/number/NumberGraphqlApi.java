@@ -19,13 +19,11 @@ package nu.fgv.archive.server.number;
 import nu.fgv.archive.server.material.MaterialDtos.ArrangementDto;
 import nu.fgv.archive.server.material.MaterialService;
 import nu.fgv.archive.server.number.NumberService.NumberDto;
-import nu.fgv.archive.server.number.NumberService.NumberInput;
 import nu.fgv.archive.server.spex.SpexDto;
 import nu.fgv.archive.server.spex.SpexService;
 import org.jspecify.annotations.Nullable;
 import org.springframework.graphql.data.method.annotation.Argument;
 import org.springframework.graphql.data.method.annotation.BatchMapping;
-import org.springframework.graphql.data.method.annotation.MutationMapping;
 import org.springframework.graphql.data.method.annotation.QueryMapping;
 import org.springframework.stereotype.Controller;
 
@@ -83,36 +81,5 @@ public class NumberGraphqlApi {
 
         numbers.forEach(number -> result.put(number, arrangements.get(number.id())));
         return result;
-    }
-
-    @MutationMapping
-    public NumberDto numberCreate(@Argument final UUID spexId, @Argument final NumberInput input) {
-        return numberService.create(spexId, input);
-    }
-
-    @MutationMapping
-    public NumberDto numberUpdate(@Argument final UUID id, @Argument final NumberInput input) {
-        return numberService.update(id, input);
-    }
-
-    @MutationMapping
-    public @Nullable Void numberDelete(@Argument final UUID id) {
-        numberService.delete(id);
-        return null;
-    }
-
-    @MutationMapping
-    public List<NumberDto> numbersPaste(@Argument final UUID spexId, @Argument final String text) {
-        return numberService.paste(spexId, text);
-    }
-
-    @MutationMapping
-    public List<NumberDto> numbersReorder(@Argument final UUID spexId, @Argument final List<UUID> ids) {
-        return numberService.reorder(spexId, ids);
-    }
-
-    @MutationMapping
-    public NumberDto numberMerge(@Argument final UUID id, @Argument final UUID intoId) {
-        return numberService.merge(id, intoId);
     }
 }

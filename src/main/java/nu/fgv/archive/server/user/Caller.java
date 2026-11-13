@@ -51,6 +51,14 @@ public record Caller(String subject, String username, @Nullable String displayNa
         return isUser() && roles.contains(Role.ADMIN);
     }
 
+    public boolean isLinksService() {
+        return roles.contains(Role.LINKS);
+    }
+
+    public boolean isNotifier() {
+        return roles.contains(Role.NOTIFY);
+    }
+
     public void requireUser() {
         if (!isUser()) {
             throw new AccessDeniedException("USER required");

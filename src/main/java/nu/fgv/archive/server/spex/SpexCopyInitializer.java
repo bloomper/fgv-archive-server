@@ -24,8 +24,8 @@ import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 
 /**
- * Copies the spex from Spexregister at start when the archive has none yet, so that a new installation does not wait for
- * the nightly refresh. When Spexregister cannot be reached, the nightly refresh or an admin tries again.
+ * Reads Spexipedia's change feed at start when the archive has no spex yet, so that a new installation does not wait for
+ * the next pull. When Spexipedia cannot be reached, the next pull or an admin tries again.
  *
  * @author Anders Jacobsson
  * @since 1.0
@@ -35,11 +35,11 @@ import org.springframework.stereotype.Component;
 public class SpexCopyInitializer {
 
     private final SpexRepository repository;
-    private final SpexService spexService;
+    private final SpexipediaSync sync;
 
-    public SpexCopyInitializer(final SpexRepository repository, final SpexService spexService) {
+    public SpexCopyInitializer(final SpexRepository repository, final SpexipediaSync sync) {
         this.repository = repository;
-        this.spexService = spexService;
+        this.sync = sync;
     }
 
     @EventListener(ApplicationReadyEvent.class)
@@ -49,9 +49,9 @@ public class SpexCopyInitializer {
             return;
         }
         try {
-            spexService.refresh();
+            sync.pull(false);
         } catch (final RuntimeException e) {
-            log.warn("Could not copy the spex from Spexregister at start: {}", e.getMessage());
+            log.warn("Could not read Spexipedia's change feed at start: {}", e.getMessage());
         }
     }
 }

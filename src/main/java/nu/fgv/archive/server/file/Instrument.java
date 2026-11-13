@@ -35,8 +35,9 @@ import java.util.List;
 import java.util.UUID;
 
 /**
- * An instrument or a voice, used in instrumentation and for the parts. Configured by admins; the names and
- * abbreviations also recognise parts by their file names.
+ * An instrument or a voice, used in instrumentation and for the parts. The tasks in Spexipedia's instrument categories
+ * are instruments here, by the task's id ({@link #taskId}), with the task's name as the Swedish name; admins add the
+ * archive's own and keep the rest. The names and abbreviations also recognise parts by their file names.
  *
  * @author Anders Jacobsson
  * @since 1.0
@@ -85,6 +86,18 @@ public class Instrument extends AbstractAuditable {
 
     @Column(name = "position", nullable = false)
     private int position;
+
+    /**
+     * The task in Spexipedia the instrument is; null for the archive's own.
+     */
+    @Column(name = "task_id", length = 36)
+    private @Nullable UUID taskId;
+
+    /**
+     * Whether its task left Spexipedia's instrument categories or was retired: kept on material, not offered anew.
+     */
+    @Column(name = "retired", nullable = false)
+    private boolean retired;
 
     public List<String> abbreviationList() {
         return abbreviations == null ? List.of()

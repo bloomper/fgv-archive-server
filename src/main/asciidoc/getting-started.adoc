@@ -54,8 +54,8 @@ $ docker compose up -d
 It creates the Docker network ``fgv-local``, which this repository's ``docker-compose.yaml`` joins.
 Keycloak imports the realm, with its clients and their secrets, from ``realm/fgv.json`` in https://github.com/bloomper/fgv-keycloak[fgv-keycloak].
 
-Spexarkiv reads spex from Spexregister, and its sample data is built on Spexregister's (see <<sample_data>>).
-Run https://github.com/bloomper/spexregister-server[spexregister-server]'s local stack as well, as its getting started guide describes.
+Spexarkiv reads spex from Spexipedia, and its sample data is built on Spexipedia's spex and Spexregister's users (see <<sample_data>>).
+Run the local stacks of fgv-spexipedia-server and https://github.com/bloomper/spexregister-server[spexregister-server] as well, as their getting started guides describe.
 
 [[configuration]]
 === Configuration
@@ -82,7 +82,7 @@ To see a changed placeholder after a pull, undo it with ``git update-index --no-
 
 |FGV_ARCHIVE_MYSQL_ROOT_PASSWORD|The password for the root user of Spexarkiv Server's database||verysecret
 |FGV_ARCHIVE_MYSQL_USER_PASSWORD|The password for the user of Spexarkiv Server's database||secret
-|API_KEYCLOAK_SERVICE_CLIENT_SECRET|The client secret of ``fgv-archive-service``, with which Spexarkiv Server reads spex from Spexregister and the editors' email addresses from Keycloak|Must match the value in ``realm/fgv.json`` in fgv-keycloak, search for ``fgv-archive-service`` and pick the value for ``secret`` in the same section|
+|API_KEYCLOAK_SERVICE_CLIENT_SECRET|The client secret of ``fgv-archive-service``, with which Spexarkiv Server reads Spexipedia's change feed and the editors' email addresses from Keycloak|Must match the value in ``realm/fgv.json`` in fgv-keycloak, search for ``fgv-archive-service`` and pick the value for ``secret`` in the same section|
 |API_KEYCLOAK_ADMIN_CLIENT_SECRET|The client secret of ``fgv-admin``, with which the sample data import gives users roles|Must match the value in ``realm/fgv.json``, search for ``fgv-admin``|
 
 |===
@@ -131,7 +131,7 @@ $ docker compose -f ../../fgv-infra-deploy/local/compose.yaml up -d
 $ docker compose up -d
 ----
 
-This starts MySQL and ``archive-api``, which reaches Keycloak, Mailpit and Spexregister by their container names on the ``fgv-local`` network.
+This starts MySQL and ``archive-api``, which reaches Keycloak, Mailpit and Spexipedia by their container names on the ``fgv-local`` network.
 Caddy serves it on ``https://api.archive.fgv.local.nu:8443``.
 MySQL is also published on localhost, on port 3311.
 Locally the worker, which reads the files' text and renders their previews, runs inside the API (the Spring profile ``local``); fgv-archive-deploy runs it in a container of its own, ``archive-worker``.
@@ -179,10 +179,10 @@ If ``API_IMPORT_SAMPLE_DATA`` is set to ``true``, the database is replaced and t
 None of the data can be traced to real individuals, i.e. no personally identifiable information (PII).
 The import needs the secret of ``fgv-admin``.
 
-The sample data is built on Spexregister's, so Spexregister must run with ``API_IMPORT_SAMPLE_DATA=true``:
+The sample data is built on Spexipedia's and Spexregister's, so both must run with ``API_IMPORT_SAMPLE_DATA=true``:
 
-* The material belongs to Spexregister's sample spex, read from its API, newest first; the oldest spex keep no material, for the lists of what is missing.
-The import waits up to 5 minutes for Spexregister.
+* The material belongs to Spexipedia's sample spex and numbers, read from its change feed, newest first; the oldest spex keep no material, for the lists of what is missing.
+The import waits up to 5 minutes for Spexipedia.
 * Spexregister's sample users get roles on ``fgv-archive`` (see <<test_credentials>>).
 The import refuses to run without them, which keeps it away from real environments.
 
@@ -210,7 +210,7 @@ The username is ``KEYCLOAK_ADMIN`` in fgv-infra-deploy's ``local/.env`` and the 
 === Setup
 
 The realm is defined by ``realm/fgv.json`` in fgv-keycloak, whose README describes what it contains.
-Spexarkiv uses its clients ``fgv-archive`` (the web, and Spexarkiv's roles), ``fgv-archive-service`` (spex from Spexregister with its ``MEDIA`` role, and the editors' email addresses) and ``fgv-admin`` (the sample data's users).
+Spexarkiv uses its clients ``fgv-archive`` (the web, and Spexarkiv's roles), ``fgv-archive-service`` (Spexipedia's change feed with ``SYNC`` on ``fgv-spexipedia``, and the editors' email addresses) and ``fgv-admin`` (the sample data's users).
 Reading the editors needs ``realm-management``'s ``view-users`` and ``view-clients`` on ``fgv-archive-service``; without ``view-clients`` the emails about access requests go only to the recipients in the settings.
 
 The integration tests import a copy of ``fgv.json`` at ``src/integrationtest/resources/realm/fgv.json``.
@@ -247,7 +247,7 @@ There are two types of tests:
 Unit tests do not require any external dependencies, such as a database, and are therefore quicker to run.
 Among them are the API tests, which are used to generate the xref:api-guide.adoc[HTTP API documentation].
 
-Integration tests start MySQL and Keycloak with Testcontainers, so they need Docker, and use WireMock as a stand-in for Spexregister.
+Integration tests start MySQL and Keycloak with Testcontainers, so they need Docker, and use WireMock as a stand-in for Spexipedia.
 They upload generated files with tus and go through the real HTTP endpoints.
 
 [source,bash]

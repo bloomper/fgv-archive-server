@@ -21,7 +21,8 @@ import dasniko.testcontainers.keycloak.KeycloakContainer;
 import jakarta.ws.rs.core.Response;
 import nu.fgv.archive.server.file.FileStorage;
 import nu.fgv.archive.server.processing.FileProcessor;
-import nu.fgv.archive.server.spex.SpexService;
+import nu.fgv.archive.server.spex.FeedChange;
+import nu.fgv.archive.server.spex.SpexipediaSync;
 import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.BeforeEach;
 import org.keycloak.admin.client.Keycloak;
@@ -65,6 +66,7 @@ import java.util.Base64;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 import static com.github.tomakehurst.wiremock.client.WireMock.aResponse;
@@ -76,9 +78,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * MySQL and Keycloak (with the committed copy of {@code fgv-keycloak}'s realm plus fictitious users) in Testcontainers,
- * and WireMock standing in for Spexregister's GraphQL API. The worker is off; tests process files with
+ * and WireMock standing in for Spexipedia's GraphQL API. The worker is off; tests process files with
  * {@link FileProcessor#processPending()}. Every test starts from empty tables, the default roles, instruments and
- * settings, and an empty storage folder, with Spexregister's spex copied.
+ * settings, and an empty storage folder, with Spexipedia's spex copied from its feed.
  *
  * @author Anders Jacobsson
  * @since 1.0
@@ -103,7 +105,7 @@ public abstract class AbstractIntegrationTest {
     protected static final String TRUMPET = "00000000-0000-7000-8000-00000000c00b";
     protected static final String TROMBONE = "00000000-0000-7000-8000-00000000c00d";
     protected static final String ALTO_SAX = "00000000-0000-7000-8000-00000000c008";
-    protected static final WireMockServer SPEXREGISTER = new WireMockServer(options().dynamicPort());
+    protected static final WireMockServer SPEXIPEDIA = new WireMockServer(options().dynamicPort());
     protected static final Path STORAGE = Path.of("build/integrationtest-data/archive").toAbsolutePath();
     private static final String REALM = "fgv";
     private static final JacksonJsonParser JSON = new JacksonJsonParser();
@@ -117,11 +119,12 @@ public abstract class AbstractIntegrationTest {
     private static final List<String> TABLES = List.of("audit_entry", "download_log", "access_request_file", "access_request",
             "share_link_instrument", "share_link_file", "share_link_version", "share_link", "file_page", "file_instrument",
             "archive_file", "instrumentation_entry", "version_modulation", "material_version", "arrangement", "manuscript", "number",
-            "spex", "upload_session", "app_user", "file_role", "instrument", "settings");
+            "spex", "spex_character", "spexipedia_task", "spexipedia_task_category", "spexipedia_category", "upload_session", "app_user",
+            "file_role", "instrument", "settings");
 
     static {
         Startables.deepStart(MYSQL, KEYCLOAK).join();
-        SPEXREGISTER.start();
+        SPEXIPEDIA.start();
         prepareKeycloak();
     }
 
@@ -134,7 +137,7 @@ public abstract class AbstractIntegrationTest {
     @Autowired
     protected FileProcessor fileProcessor;
     @Autowired
-    private SpexService spexService;
+    protected SpexipediaSync sync;
     @Autowired
     private DataSource dataSource;
     @Autowired
@@ -148,7 +151,9 @@ public abstract class AbstractIntegrationTest {
         registry.add("archive.keycloak.service-client-secret", () -> SECRETS.get("fgv-archive-service"));
         registry.add("archive.keycloak.admin-client-secret", () -> SECRETS.get("fgv-admin"));
         registry.add("archive.storage.root", STORAGE::toString);
-        registry.add("archive.spexregister.graphql-url", () -> SPEXREGISTER.baseUrl() + "/api/graphql");
+        registry.add("archive.spexipedia.graphql-url", () -> SPEXIPEDIA.baseUrl() + "/api/graphql");
+        // Tests apply the feed themselves
+        registry.add("archive.spexipedia.sync-enabled", () -> "false");
     }
 
     /**
@@ -260,25 +265,58 @@ public abstract class AbstractIntegrationTest {
     }
 
     /**
-     * Spexregister answering with two originals and a revival.
+     * Spexipedia's two originals and a revival, as its change feed brings them.
      */
-    protected static void spexregisterUp() {
-        SPEXREGISTER.resetAll();
-        SPEXREGISTER.stubFor(post(urlEqualTo("/api/graphql"))
-                .withRequestBody(containing("parent:NULL"))
-                .willReturn(aResponse().withHeader("Content-Type", "application/json").withBody("""
-                        {"data": {"spexPaged": {"edges": [
-                          {"node": {"id": "00000000-0000-7000-8000-000000000002", "year": "2020", "title": "Ali Baba", "revival": false, "parent": null,
-                                    "category": {"id": "00000000-0000-7000-8000-0000000000c1", "name": "Chalmersspexet"}}},
-                          {"node": {"id": "00000000-0000-7000-8000-000000000001", "year": "2024", "title": "Cleopatra", "revival": false, "parent": null,
-                                    "category": {"id": "00000000-0000-7000-8000-0000000000c1", "name": "Chalmersspexet"}}}]}}}""")));
-        SPEXREGISTER.stubFor(post(urlEqualTo("/api/graphql"))
-                .withRequestBody(containing("parent!NULL"))
-                .willReturn(aResponse().withHeader("Content-Type", "application/json").withBody("""
-                        {"data": {"spexPaged": {"edges": [
-                          {"node": {"id": "00000000-0000-7000-8000-000000000003", "year": "2026", "title": "Cleopatra", "revival": true,
-                                    "parent": {"id": "00000000-0000-7000-8000-000000000001"},
-                                    "category": {"id": "00000000-0000-7000-8000-0000000000c1", "name": "Chalmersspexet"}}}]}}}""")));
+    protected void spexipediaSpex() {
+        final UUID category = UUID.fromString("00000000-0000-7000-8000-0000000000c1");
+
+        sync.applyAll(List.of(
+                new FeedChange("1", "SPEX_CATEGORY", category, "UPSERT", null, new FeedChange.SpexCategory(category, "Chalmersspexet"), null, null, null, null, null),
+                spex(OTHER_SPEX_ID, "2020", "Ali Baba", null),
+                spex(SPEX_ID, "2024", "Cleopatra", null),
+                spex(REVIVAL_ID, "2026", "Cleopatra", SPEX_ID)));
+    }
+
+    private static FeedChange spex(final String id, final String year, final String title, final @Nullable String parentId) {
+        final UUID uuid = UUID.fromString(id);
+
+        return new FeedChange("1", "SPEX", uuid, "UPSERT", null, null, new FeedChange.Spex(uuid, year, title,
+                UUID.fromString("00000000-0000-7000-8000-0000000000c1"), parentId == null ? null : UUID.fromString(parentId), false),
+                null, null, null, null);
+    }
+
+    /**
+     * A number of the spex, last in act 1, as Spexipedia's change feed brings it.
+     *
+     * @return its id
+     */
+    protected String number(final String spexId, final String title) {
+        final UUID id = UUID.nameUUIDFromBytes(("number-" + spexId + "-" + title).getBytes(StandardCharsets.UTF_8));
+        final int position = jdbcClient.sql("SELECT COUNT(*) FROM number WHERE spex_id = ?").param(spexId).query(Integer.class).single() + 1;
+
+        sync.applyAll(List.of(new FeedChange("1", "NUMBER", id, "UPSERT", null, null, null, null, null, null,
+                new FeedChange.Number(id, UUID.fromString(spexId), 1, position, title, null, null, false))));
+        return id.toString();
+    }
+
+    /**
+     * A service account's access token, by client credentials, e.g. {@code fgv-spexipedia-service}.
+     */
+    protected static String serviceToken(final String clientId) {
+        return TOKENS.computeIfAbsent("client:" + clientId, _ -> {
+            final MultiValueMap<String, String> form = new LinkedMultiValueMap<>();
+
+            form.add("grant_type", "client_credentials");
+            form.add("client_id", clientId);
+            form.add("client_secret", SECRETS.get(clientId));
+            return "Bearer " + JSON.parseMap(RestClient.create()
+                    .post()
+                    .uri(KEYCLOAK.getAuthServerUrl() + "/realms/" + REALM + "/protocol/openid-connect/token")
+                    .contentType(MediaType.APPLICATION_FORM_URLENCODED)
+                    .body(form)
+                    .retrieve()
+                    .body(String.class)).get("access_token");
+        });
     }
 
     @BeforeEach
@@ -297,17 +335,20 @@ public abstract class AbstractIntegrationTest {
                 VALUES (1, 500, 0, 1, 24)""").update();
         storage.wipe();
         cacheManager.getCacheNames().forEach(name -> Objects.requireNonNull(cacheManager.getCache(name)).clear());
-        spexregisterUp();
-        spexService.refresh();
+        spexipediaSpex();
     }
 
     protected HttpGraphQlTester graphQl(final @Nullable String user) {
+        return graphQlWithToken(user == null ? null : token(user));
+    }
+
+    protected HttpGraphQlTester graphQlWithToken(final @Nullable String token) {
         return HttpGraphQlTester.create(WebTestClient.bindToServer()
                 .baseUrl("http://localhost:%d/api/graphql".formatted(localPort))
                 .responseTimeout(Duration.ofSeconds(60))
                 .defaultHeaders(headers -> {
-                    if (user != null) {
-                        headers.set(HttpHeaders.AUTHORIZATION, token(user));
+                    if (token != null) {
+                        headers.set(HttpHeaders.AUTHORIZATION, token);
                     }
                     headers.set(HttpHeaders.ACCEPT_LANGUAGE, "en");
                 })

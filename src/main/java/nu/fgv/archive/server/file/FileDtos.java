@@ -40,7 +40,7 @@ public final class FileDtos {
     public static InstrumentDto toDto(final Instrument instrument) {
         return new InstrumentDto(instrument.getUuid(), instrument.getNameSv(), instrument.getNameEn(), instrument.getGroup(),
                 instrument.abbreviationList(), new Transposition(instrument.getDefaultPitch(), instrument.getDefaultOctave()),
-                instrument.getPosition());
+                instrument.getPosition(), instrument.getTaskId(), instrument.isRetired());
     }
 
     /**
@@ -65,7 +65,12 @@ public final class FileDtos {
     }
 
     public record InstrumentDto(UUID id, String nameSv, String nameEn, InstrumentGroup group, List<String> abbreviations,
-                                Transposition defaultTransposition, int position) {
+                                Transposition defaultTransposition, int position, @Nullable UUID taskId, boolean retired) {
+
+        public InstrumentDto(final UUID id, final String nameSv, final String nameEn, final InstrumentGroup group,
+                             final List<String> abbreviations, final Transposition defaultTransposition, final int position) {
+            this(id, nameSv, nameEn, group, abbreviations, defaultTransposition, position, null, false);
+        }
     }
 
     public record InstrumentInput(@Nullable String nameSv, @Nullable String nameEn, @Nullable InstrumentGroup group,

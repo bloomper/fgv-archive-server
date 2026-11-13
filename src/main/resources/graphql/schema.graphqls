@@ -62,6 +62,8 @@ type Query {
     auditActors: [AuditActor!]!
     "ADMIN. The scheduled maintenance jobs, with their schedules and how their latest runs went."
     maintenanceJobs: [MaintenanceJobStatus!]!
+    "LINKS. For Spexipedia: the manuscripts of the spex and the arrangements of the numbers that have a published version. At most 500 ids each."
+    spexipediaLinks(spexIds: [ID!]!, numberIds: [ID!]!): SpexipediaLinks!
 }
 
 type Mutation {
@@ -111,25 +113,6 @@ type Mutation {
     filesReorder(versionId: ID!, ids: [ID!]!): [File!]!
     "EDITOR. Deletes the file for good."
     fileDelete(id: ID!): Void
-    "EDITOR. Added last."
-    numberCreate(spexId: ID!, input: NumberInput!): Number!
-    "EDITOR."
-    numberUpdate(id: ID!, input: NumberInput!): Number!
-    "EDITOR. Only a number without an arrangement; merge one that has one."
-    numberDelete(id: ID!): Void
-    """
-    EDITOR. Adds numbers last, one per non-empty line: a title, optionally numbered ("3. Title"), with the original song
-    in parentheses ("Title (Melody)"), or tab-separated columns as pasted from a spreadsheet: title, original song,
-    lyricist, composer.
-    """
-    numbersPaste(spexId: ID!, text: String!): [Number!]!
-    "EDITOR. Every number of the spex in the new order."
-    numbersReorder(spexId: ID!, ids: [ID!]!): [Number!]!
-    """
-    EDITOR. Merges a number into another of the same spex and deletes it. Its arrangement moves to the other number, or,
-    when that has one too, its versions move into the other's arrangement.
-    """
-    numberMerge(id: ID!, intoId: ID!): Number!
     "EDITOR. Shares the given versions (all their files) and files; expires after the given months, at most the settings' longest. The token is returned only here."
     shareLinkCreate(input: ShareLinkInput!): CreatedShareLink!
     "EDITOR, own links; ADMIN, any. Gives the link a new name, saying whom it is for."
@@ -214,7 +197,7 @@ input SpexFilter {
     withMaterial: Boolean
 }
 
-"A spex, copied from Spexregister every night. A revival is a spex of its own, with its original as parent."
+"A spex, copied from Spexipedia's change feed. A revival is a spex of its own, with its original as parent."
 type Spex {
     id: ID!
     title: String
@@ -230,8 +213,12 @@ type Spex {
     revivals: [Spex!]!
     "The manuscripts of the spex' family (a revival shows its original's) the caller sees."
     manuscripts: [Manuscript!]!
-    "The numbers in the order of the show: the spex' own, or its original's for a revival without any (numbersInherited)."
+    "The numbers in the order of the show, from Spexipedia: for a revival, its original's (numbersInherited) and its own."
     numbers: [Number!]!
+    "The characters, from Spexipedia: for a revival, its original's and its own."
+    characters: [Character!]!
+    "Whether Spexipedia no longer offers it for new material."
+    retired: Boolean!
     "The arrangements of those numbers that the caller sees, in the order of the show; with a key or parts, only those with a version that matches."
     arrangements(key: KeyInput, parts: PartFilter): [Arrangement!]!
     numbersInherited: Boolean!
@@ -240,12 +227,23 @@ type Spex {
     arrangementCount: Int!
 }
 
-"A song of a spex, kept by Spexarkiv's editors until Spexipedia takes the numbers over with the same ids."
+"A role in a spex, copied from Spexipedia."
+type Character {
+    id: ID!
+    name: String!
+    position: Int!
+}
+
+"A song of a spex, copied from Spexipedia, where it is kept; arrangements refer to it by its id."
 type Number {
     id: ID!
     spexId: ID!
     spex: Spex!
+    act: Int!
+    "The position in the act."
     position: Int!
+    "Whether Spexipedia no longer has it on the spex; shown only with an arrangement."
+    retired: Boolean!
     title: String!
     "The melody, e.g. Yesterday (The Beatles)."
     originalSong: String
@@ -255,12 +253,6 @@ type Number {
     arrangement: Arrangement
 }
 
-input NumberInput {
-    title: String!
-    originalSong: String
-    lyricist: String
-    composer: String
-}
 
 type Manuscript {
     id: ID!
@@ -489,6 +481,10 @@ type Instrument {
     position: Int!
     "ADMIN: how many files, instrumentation entries and share links use it, across the archive. Null for everyone else."
     useCount: Int
+    "The task in Spexipedia the instrument is, whose name is its Swedish name; null for the archive's own."
+    taskId: ID
+    "Whether its task left Spexipedia's instrument categories or was retired: kept on material, not offered for new."
+    retired: Boolean!
 }
 
 input InstrumentInput {
@@ -708,7 +704,7 @@ type AuditActor {
 }
 
 """
-The maintenance jobs: SPEX_REFRESH copies the spex from Spexregister, UPLOAD_CLEANUP removes uploads older than 24
+The maintenance jobs: SPEX_REFRESH reads Spexipedia's change feed from the start, copying spex, numbers, characters and instruments again (changes also arrive within minutes), UPLOAD_CLEANUP removes uploads older than 24
 hours, FILE_BACKFILL queues files without text or preview for the worker again, RETENTION removes download logs and
 access requests older than 24 months and users not seen for 36 months.
 """
@@ -806,4 +802,22 @@ list does not narrow.
 input PartFilter {
     instrumentIds: [ID!]
     transpositions: [Pitch!]
+}
+
+type SpexipediaLinks {
+    manuscripts: [SpexipediaManuscriptLink!]!
+    arrangements: [SpexipediaArrangementLink!]!
+}
+
+type SpexipediaManuscriptLink {
+    id: ID!
+    title: String!
+    spexId: ID
+}
+
+type SpexipediaArrangementLink {
+    id: ID!
+    "The number's title."
+    title: String!
+    numberId: ID
 }

@@ -25,5 +25,14 @@ package nu.fgv.archive.server.user;
 public enum Role {
     USER,
     EDITOR,
-    ADMIN
+    ADMIN,
+    /**
+     * Spexipedia's service account: which numbers have an arrangement with a published version, and which spex a
+     * manuscript, and nothing else (the spec, section 8).
+     */
+    LINKS,
+    /**
+     * Spexipedia's service account: telling the application that its change feed has something new.
+     */
+    NOTIFY
 }

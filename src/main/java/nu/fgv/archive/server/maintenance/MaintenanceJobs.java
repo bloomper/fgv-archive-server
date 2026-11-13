@@ -18,7 +18,7 @@ package nu.fgv.archive.server.maintenance;
 
 import lombok.extern.slf4j.Slf4j;
 import nu.fgv.archive.server.processing.FileProcessor;
-import nu.fgv.archive.server.spex.SpexService;
+import nu.fgv.archive.server.spex.SpexipediaSync;
 import nu.fgv.archive.server.upload.UploadService;
 import org.jspecify.annotations.Nullable;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -48,10 +48,10 @@ public class MaintenanceJobs {
     private final ConcurrentMap<MaintenanceJob, Run> lastRuns = new ConcurrentHashMap<>();
 
     @Autowired
-    public MaintenanceJobs(final SpexService spexService, final UploadService uploadService, final FileProcessor fileProcessor,
+    public MaintenanceJobs(final SpexipediaSync spexipediaSync, final UploadService uploadService, final FileProcessor fileProcessor,
                            final RetentionService retentionService) {
         this(Map.of(
-                MaintenanceJob.SPEX_REFRESH, spexService::refresh,
+                MaintenanceJob.SPEX_REFRESH, () -> spexipediaSync.pull(true),
                 MaintenanceJob.UPLOAD_CLEANUP, uploadService::cleanUp,
                 MaintenanceJob.FILE_BACKFILL, fileProcessor::backfill,
                 MaintenanceJob.RETENTION, retentionService::run

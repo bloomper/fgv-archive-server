@@ -96,7 +96,7 @@ dependencies {
     implementation 'org.apache.tika:tika-parser-text-module'
     implementation 'org.apache.tika:tika-parser-xml-module'
     // The sample data's DOCX is written with POI's XWPF, whose schema classes Tika 4 no longer brings
-    implementation 'org.apache.poi:poi-ooxml-lite:5.5.1'
+    implementation 'org.apache.poi:poi-ooxml-lite:6.0.0'
 
     annotationProcessor 'org.projectlombok:lombok'
     annotationProcessor 'org.springframework.boot:spring-boot-configuration-processor'

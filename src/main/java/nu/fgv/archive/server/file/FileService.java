@@ -217,6 +217,30 @@ public class FileService {
     }
 
     /**
+     * Pages of the extracted text of a file the caller may open, as for {@link #open}: not found when the caller does
+     * not see it, forbidden when it is restricted and the caller is not an editor. A file without pages has its text as
+     * one page, included when the range starts at the first page.
+     */
+    @Transactional(readOnly = true)
+    public FileDtos.FileTextDto text(final UUID id, final int fromPage, final int toPage) {
+        final Caller caller = callerService.current();
+
+        caller.requireUser();
+
+        final ArchiveFile file = repository.findByUuid(id)
+                .filter(found -> MaterialDtos.sees(caller, found.getVersion()))
+                .orElseThrow(() -> new ResourceNotFoundException("error.file.notFound", id));
+
+        if (!MaterialDtos.canOpen(caller, file.getVersion())) {
+            throw new AccessDeniedException("Restricted file");
+        }
+        return new FileDtos.FileTextDto(FileDtos.toDto(file, true, caller.isEditor()),
+                pageRepository.findByFileAndPageBetweenOrderByPageAsc(file, fromPage <= 1 ? 0 : fromPage, toPage).stream()
+                        .map(page -> new FileDtos.PageTextDto(page.getPage() == 0 ? null : page.getPage(), page.getText()))
+                        .toList());
+    }
+
+    /**
      * Where a file lies and how it is served, read in a transaction.
      */
     public StoredFile stored(final ArchiveFile file) {

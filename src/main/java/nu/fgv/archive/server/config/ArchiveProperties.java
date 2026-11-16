@@ -26,14 +26,18 @@ import java.util.List;
  *
  * @param timeZone the zone the jobs' schedules and "today" are in
  * @param webUrl   the web's address, for the links in emails
+ * @param baseUrl  the API's public address, e.g. {@code https://api.archive.fgv.local.nu:8443}, for the MCP endpoint's
+ *                 address, which MCP tokens must have as audience
  * @author Anders Jacobsson
  * @since 1.0
  */
 @ConfigurationProperties(prefix = "archive")
 public record ArchiveProperties(String timeZone,
                                 String webUrl,
+                                String baseUrl,
                                 Keycloak keycloak,
                                 Security security,
+                                Mcp mcp,
                                 Storage storage,
                                 Worker worker,
                                 Spexipedia spexipedia,
@@ -44,6 +48,12 @@ public record ArchiveProperties(String timeZone,
     }
 
     public record Security(List<String> authorizedParties) {
+    }
+
+    /**
+     * @param authorizedParties the Keycloak clients whose tokens the MCP endpoint accepts, e.g. {@code fgv-archive-mcp}
+     */
+    public record Mcp(List<String> authorizedParties) {
     }
 
     /**

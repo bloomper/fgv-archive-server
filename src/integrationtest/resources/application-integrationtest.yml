@@ -3,6 +3,23 @@ logging:
     path: ./build/integrationtest-data/log_data
 
 archive:
+  # Scheduled jobs never fire on their own in tests: a test that needs one calls it, so a run at
+  # the wrong minute can't hold its lock or change data mid-test
+  jobs:
+    spex-refresh:
+      cron-expression: '-'
+    spexipedia-sync:
+      cron-expression: '-'
+    upload-cleanup:
+      cron-expression: '-'
+    file-backfill:
+      cron-expression: '-'
+    retention:
+      cron-expression: '-'
+  # The audience of fgv-archive-mcp's tokens in the realm copy is http://localhost:8087/api/mcp
+  base-url: http://localhost:8087
+  mcp:
+    authorized-parties: fgv-archive-mcp,fgv-archive-mcp-unbound
   # The tests process files themselves, with FileProcessor.processPending()
   worker:
     enabled: false

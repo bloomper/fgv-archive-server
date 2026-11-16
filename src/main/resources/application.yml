@@ -52,6 +52,28 @@ spring:
         enabled: false
     http:
       path: /api/graphql
+  ai:
+    mcp:
+      server:
+        name: fgv-archive
+        version: 1.0.0
+        type: SYNC
+        protocol: STATELESS
+        streamable-http:
+          mcp-endpoint: /api/mcp
+        capabilities:
+          resource: false
+          prompt: false
+          completion: false
+        instructions: >-
+          Spexarkiv is FGV's archive of the spex' manuscripts and musical arrangements. A manuscript belongs to a
+          spex, an arrangement to one of its numbers (songs); each has versions, e.g. the original and a revival's,
+          and each version has files: PDFs of the script, scores and parts, and their sources. Revivals share their
+          original's material. The text of the files is extracted page by page for search. Every call runs with the
+          permissions of the signed-in user: users see published versions only and read the text of unrestricted
+          files only; editors see everything. The tools only read: nothing is uploaded, changed, shared, downloaded
+          or deleted, and no file contents other than extracted text are returned. Ids are UUIDs from earlier
+          results.
 
 management:
   server:
@@ -78,6 +100,8 @@ logging:
 
 archive:
   time-zone: Europe/Stockholm
+  # The API's public address, for the MCP endpoint's address, which MCP tokens must have as audience
+  base-url: ${API_BASE_URL:https://api.archive.fgv.local.nu:8443}
   # The web's address, for the links in emails
   web-url: ${API_WEB_URL:http://localhost:3005}
   jobs:
@@ -99,6 +123,9 @@ archive:
     service-client-secret: ${API_KEYCLOAK_SERVICE_CLIENT_SECRET:}
   security:
     authorized-parties: ${API_SECURITY_AUTHORIZED_PARTIES:fgv-archive,fgv-spexipedia-service}
+  mcp:
+    # The Keycloak clients whose tokens the MCP endpoint accepts, and only it
+    authorized-parties: ${API_KEYCLOAK_MCP_CLIENT_ID:fgv-archive-mcp}
   storage:
     # Holds files/, previews/ and uploads/
     root: ${API_STORAGE_ROOT:./data/archive}

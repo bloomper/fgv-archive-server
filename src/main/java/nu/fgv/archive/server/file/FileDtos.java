@@ -97,6 +97,18 @@ public final class FileDtos {
                             @Nullable String desk, @Nullable Transposition transposition) {
     }
 
+    /**
+     * Pages of a file's extracted text.
+     */
+    public record FileTextDto(FileDto file, List<PageTextDto> pages) {
+    }
+
+    /**
+     * @param page the page, from 1; null for the text of a file without pages, e.g. a DOCX
+     */
+    public record PageTextDto(@Nullable Integer page, String text) {
+    }
+
     public record FileGuessDto(FileRoleDto role, List<InstrumentDto> instruments, @Nullable String desk,
                                @Nullable Transposition transposition, String title) {
     }

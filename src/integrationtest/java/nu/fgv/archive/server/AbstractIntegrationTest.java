@@ -96,6 +96,12 @@ public abstract class AbstractIntegrationTest {
     protected static final String NO_ACCESS = "utan" + DOMAIN;
     protected static final String PASSWORD = "s3cr3t-s3cr3t";
     protected static final String CLIENT_ID = "fgv-archive";
+    protected static final String MCP_CLIENT_ID = "fgv-archive-mcp";
+    /**
+     * An MCP client whose tokens lack the MCP endpoint's audience.
+     */
+    protected static final String UNBOUND_MCP_CLIENT_ID = "fgv-archive-mcp-unbound";
+    protected static final String MCP_PATH = "/api/mcp";
     /** Cleopatra 2024, an original. */
     protected static final String SPEX_ID = "00000000-0000-7000-8000-000000000001";
     /** Ali Baba 2020, another original. */
@@ -182,6 +188,19 @@ public abstract class AbstractIntegrationTest {
             web.setDirectAccessGrantsEnabled(true);
             realm.clients().get(web.getId()).update(web);
 
+            final ClientRepresentation mcp = realm.clients().findByClientId(MCP_CLIENT_ID).getFirst();
+
+            mcp.setDirectAccessGrantsEnabled(true);
+            mcp.setConsentRequired(false);
+            realm.clients().get(mcp.getId()).update(mcp);
+
+            final ClientRepresentation unbound = new ClientRepresentation();
+
+            unbound.setClientId(UNBOUND_MCP_CLIENT_ID);
+            unbound.setPublicClient(true);
+            unbound.setDirectAccessGrantsEnabled(true);
+            realm.clients().create(unbound).close();
+
             createUser(realm, VIEWER, "Lisa", List.of("USER"));
             createUser(realm, EDITOR, "Erik", List.of("USER", "EDITOR"));
             createUser(realm, ADMIN, "Anna", List.of("USER", "EDITOR", "ADMIN"));
@@ -232,12 +251,28 @@ public abstract class AbstractIntegrationTest {
      * A user's access token from {@code fgv-archive}, by password grant.
      */
     protected static String token(final String user) {
-        return TOKENS.computeIfAbsent(user, _ -> {
+        return token(user, CLIENT_ID);
+    }
+
+    /**
+     * A user's access token from {@code fgv-archive-mcp}, by password grant.
+     */
+    protected static String mcpToken(final String user) {
+        return token(user, MCP_CLIENT_ID);
+    }
+
+    /**
+     * A user's access token from a client, by password grant; with its secret when it has one.
+     */
+    protected static String token(final String user, final String clientId) {
+        return TOKENS.computeIfAbsent(CLIENT_ID.equals(clientId) ? user : clientId + ":" + user, _ -> {
             final MultiValueMap<String, String> form = new LinkedMultiValueMap<>();
 
             form.add("grant_type", "password");
-            form.add("client_id", CLIENT_ID);
-            form.add("client_secret", SECRETS.get(CLIENT_ID));
+            form.add("client_id", clientId);
+            if (SECRETS.containsKey(clientId)) {
+                form.add("client_secret", SECRETS.get(clientId));
+            }
             form.add("username", user);
             form.add("password", PASSWORD);
             form.add("scope", "openid");

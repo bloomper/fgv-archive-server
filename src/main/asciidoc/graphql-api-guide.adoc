@@ -53,7 +53,7 @@ Spexarkiv Server uses the following roles, which are client roles on ``fgv-archi
 
 |===
 
-Every service method resolves the caller and checks the role before it acts; GraphQL operations hold no rules of their own.
+Every service method resolves the caller and checks the role before it acts; GraphQL operations and MCP tools hold no rules of their own.
 
 [[archive]]
 == The archive

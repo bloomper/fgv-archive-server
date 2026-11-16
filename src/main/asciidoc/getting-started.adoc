@@ -99,10 +99,12 @@ There are also configuration parameters in ``.env`` that can be tweaked if so de
 |API_KEYCLOAK_CLIENT_CLIENT_ID|The Keycloak client id of Spexarkiv Web|fgv-archive
 |API_IMPORT_SAMPLE_DATA|A flag determining whether to import sample data or not|false
 |API_SAMPLE_DATA_SIZE|``small`` (material for about 10 spex) or ``large`` (about 150, with very short files)|small
+|API_BASE_URL|The API's public address; the MCP endpoint's address under it is the audience MCP tokens must have|https://api.archive.fgv.local.nu:8443
+|API_KEYCLOAK_MCP_CLIENT_ID|The Keycloak client of MCP clients, whose tokens only the MCP endpoint accepts (see <<mcp_server>>)|fgv-archive-mcp
 
 |===
 
-Access tokens are only accepted from the Keycloak client ``fgv-archive`` (``API_SECURITY_AUTHORIZED_PARTIES``).
+Access tokens are only accepted from the Keycloak client ``fgv-archive`` (``API_SECURITY_AUTHORIZED_PARTIES``), and at the MCP endpoint only from ``fgv-archive-mcp`` (``API_KEYCLOAK_MCP_CLIENT_ID``).
 
 Add the following to `/etc/hosts` (or the Windows equivalent):
 
@@ -201,7 +203,7 @@ The username is ``KEYCLOAK_ADMIN`` in fgv-infra-deploy's ``local/.env`` and the 
 === Setup
 
 The realm is defined by ``realm/fgv.json`` in fgv-keycloak, whose README describes what it contains.
-Spexarkiv uses its clients ``fgv-archive`` (the web, and Spexarkiv's roles) and ``fgv-archive-service`` (Spexipedia's change feed with ``SYNC`` on ``fgv-spexipedia``, and the editors' email addresses).
+Spexarkiv uses its clients ``fgv-archive`` (the web, and Spexarkiv's roles), ``fgv-archive-mcp`` (MCP clients) and ``fgv-archive-service`` (Spexipedia's change feed with ``SYNC`` on ``fgv-spexipedia``, and the editors' email addresses).
 Reading the editors needs ``realm-management``'s ``view-users`` and ``view-clients`` on ``fgv-archive-service``; without ``view-clients`` the emails about access requests go only to the recipients in the settings.
 
 The integration tests import a copy of ``fgv.json`` at ``src/integrationtest/resources/realm/fgv.json``.
@@ -302,5 +304,34 @@ Enter values as follows (leave other fields empty).
 
 Request an access token by clicking ``Get New Access Token`` and use any of the test credentials to login.
 Use the obtained access token when invoking the API, e.g. https://api.archive.fgv.local.nu:8443/api/graphql.
+
+[[mcp_server]]
+== MCP server
+
+Spexarkiv Server exposes a read-only MCP (Model Context Protocol) server at ``/api/mcp`` (stateless streamable HTTP), letting AI assistants search the archive and read about its material:
+
+|===
+|Tool|What it does
+
+|``search_archive``|Searches the text of the files, page by page, and spex, manuscripts, numbers and arrangements, as the web's search; text hits give the file, version, manuscript or arrangement, spex, page and an excerpt
+|``list_spex``|The spex in the archive's copy of Spexipedia, with their revivals and how many manuscripts and arrangements they have
+|``list_spex_material``|A spex' manuscripts and arrangements, optionally of one kind, with how many versions each has and its recommended version
+|``get_material``|A manuscript or arrangement with its versions and their files' metadata: names, types, page counts, roles, instruments and dates
+|``get_file_text``|The extracted text of a file's pages, at most 10 pages and 20,000 characters per call
+
+|===
+
+No tool changes anything, creates share links, or returns files, their download or share links, or zips: only metadata and the extracted text.
+Every tool call runs with the permissions of the signed-in user, through the same services as GraphQL: users see published versions and read the text of unrestricted files only, editors see everything.
+
+Authentication uses OAuth 2.0 against Keycloak with the public client ``fgv-archive-mcp`` (authorization code with PKCE, redirect URIs ``http://localhost:*`` and ``http://127.0.0.1:*``).
+Only tokens issued to that client are accepted by the MCP endpoint, and they are not accepted by the rest of the API.
+The tokens must also have the MCP endpoint's address (``API_BASE_URL`` with ``/api/mcp``) as audience, which ``fgv.json`` sets from ``ARCHIVE_MCP_URL``.
+Users confirm the access once, on Keycloak's consent page.
+MCP clients discover Keycloak through the protected resource metadata at ``/.well-known/oauth-protected-resource/api/mcp``.
+Keycloak does not allow dynamic client registration by default, so configure the MCP client with the client id ``fgv-archive-mcp``.
+
+Locally, the MCP server is available at ``https://api.archive.fgv.local.nu:8443/api/mcp``.
+It can for instance be explored with the MCP Inspector (https://github.com/modelcontextprotocol/inspector).
 
 xref:index.adoc[Back to start page]

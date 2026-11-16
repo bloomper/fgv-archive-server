@@ -35,6 +35,11 @@ public interface FilePageRepository extends JpaRepository<FilePage, Long> {
     void deleteByFile(ArchiveFile file);
 
     /**
+     * A file's pages in a range, in order; the text of a file without pages, e.g. a DOCX, is page 0.
+     */
+    List<FilePage> findByFileAndPageBetweenOrderByPageAsc(ArchiveFile file, int from, int to);
+
+    /**
      * The best matching pages, as rows of file id, page and text.
      *
      * @param query a boolean mode query, e.g. {@code +kärlek* +duett*}

@@ -140,6 +140,15 @@ public class SpexGraphqlApi {
         return result;
     }
 
+    @BatchMapping(typeName = "Spex", field = "characters")
+    public Map<SpexDto, List<SpexService.CharacterDto>> characters(final List<SpexDto> spex) {
+        final Map<UUID, List<SpexService.CharacterDto>> characters = spexService.characters(spex.stream().map(SpexDto::id).toList());
+        final Map<SpexDto, List<SpexService.CharacterDto>> result = new LinkedHashMap<>();
+
+        spex.forEach(dto -> result.put(dto, characters.getOrDefault(dto.id(), List.of())));
+        return result;
+    }
+
     @BatchMapping(typeName = "Spex", field = "numbersInherited")
     public Map<SpexDto, Boolean> numbersInherited(final List<SpexDto> spex) {
         final Map<SpexDto, NumberService.SpexNumbers> numbers = bySpex(spex, numberService::numbersOf);

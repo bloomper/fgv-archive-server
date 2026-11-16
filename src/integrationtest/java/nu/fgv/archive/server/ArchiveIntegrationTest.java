@@ -60,12 +60,7 @@ class ArchiveIntegrationTest extends AbstractIntegrationTest {
     }
 
     private String arrangementVersion(final String spexId, final String title) {
-        final String numberId = graphQl(EDITOR)
-                .document("mutation($spex: ID!, $title: String!) { numberCreate(spexId: $spex, input: {title: $title}) { id } }")
-                .variable("spex", spexId)
-                .variable("title", title)
-                .execute()
-                .path("numberCreate.id").entity(String.class).get();
+        final String numberId = number(spexId, title);
 
         return graphQl(EDITOR)
                 .document("mutation($number: ID!) { arrangementCreate(input: {numberId: $number}) { versions { id restricted } } }")
@@ -287,52 +282,6 @@ class ArchiveIntegrationTest extends AbstractIntegrationTest {
     }
 
     @Test
-    void aNumberWithAnArrangementIsMergedNotDeleted() {
-        arrangementVersion(SPEX_ID, "Ouvertyr");
-
-        final List<String> numbers = graphQl(EDITOR)
-                .document("mutation($spex: ID!) { numbersPaste(spexId: $spex, text: \"Finalen (Final Countdown)\\nExtranumret\") { id originalSong } }")
-                .variable("spex", SPEX_ID)
-                .execute()
-                .path("numbersPaste[0].originalSong").entity(String.class).isEqualTo("Final Countdown")
-                .path("numbersPaste[*].id").entityList(String.class).get();
-        final String withArrangement = graphQl(EDITOR)
-                .document("query($spex: ID!) { spex(id: $spex) { numbers { id title arrangement { id } } } }")
-                .variable("spex", SPEX_ID)
-                .execute()
-                .path("spex.numbers[0].title").entity(String.class).isEqualTo("Ouvertyr")
-                .path("spex.numbers[0].id").entity(String.class).get();
-        final String otherSpexNumber = graphQl(EDITOR)
-                .document("mutation($spex: ID!) { numberCreate(spexId: $spex, input: {title: \"Ouvertyr\"}) { id } }")
-                .variable("spex", OTHER_SPEX_ID)
-                .execute()
-                .path("numberCreate.id").entity(String.class).get();
-
-        expectError(graphQl(EDITOR).document("mutation($id: ID!) { numberDelete(id: $id) }").variable("id", withArrangement).execute(), "CONFLICT");
-        expectError(graphQl(EDITOR).document("mutation($id: ID!, $into: ID!) { numberMerge(id: $id, intoId: $into) { id } }")
-                .variable("id", withArrangement).variable("into", otherSpexNumber).execute(), "BAD_REQUEST");
-        graphQl(EDITOR).document("mutation($id: ID!, $into: ID!) { numberMerge(id: $id, intoId: $into) { id arrangement { id } } }")
-                .variable("id", withArrangement).variable("into", numbers.getFirst())
-                .execute()
-                .path("numberMerge.arrangement.id").entity(String.class).satisfies(id -> assertThat(id).isNotBlank());
-        graphQl(EDITOR)
-                .document("query($spex: ID!) { spex(id: $spex) { numbers { title position } } }")
-                .variable("spex", SPEX_ID)
-                .execute()
-                .path("spex.numbers[*].title").entityList(String.class).containsExactly("Finalen", "Extranumret")
-                .path("spex.numbers[*].position").entityList(Integer.class).containsExactly(1, 2);
-        // A number without an arrangement is deleted
-        graphQl(EDITOR).document("mutation($id: ID!) { numberDelete(id: $id) }").variable("id", numbers.get(1)).execute().path("numberDelete").valueIsNull();
-        // A revival without numbers of its own shows its original's
-        graphQl(VIEWER)
-                .document("query($spex: ID!) { spex(id: $spex) { numbersInherited numbers { title } } }")
-                .variable("spex", REVIVAL_ID)
-                .execute()
-                .path("spex.numbersInherited").entity(Boolean.class).isEqualTo(true)
-                .path("spex.numbers[*].title").entityList(String.class).containsExactly("Finalen");
-    }
-
-    @Test
     void aPartWithTwoInstrumentsMatchesAFilterOnEither() throws IOException {
         final String versionId = arrangementVersion(SPEX_ID, "Ouvertyr");
         final String shared = addFile(versionId, pdf("Trumpet & Trombone.pdf", 1), null, null, null);
@@ -519,31 +468,6 @@ class ArchiveIntegrationTest extends AbstractIntegrationTest {
                 .variable("id", linkId).execute(), "BAD_REQUEST");
         assertThat(jdbcClient.sql("SELECT COUNT(*) FROM audit_entry WHERE entity_type = 'SHARE_LINK' AND summary LIKE 'Döpte om%'")
                 .query(Long.class).single()).isEqualTo(1);
-    }
-
-    @Test
-    void numbersWhoseArrangementsDifferInTrashAreNotMerged() {
-        final String first = arrangementVersion(SPEX_ID, "Ouvertyr");
-        final String second = arrangementVersion(SPEX_ID, "Finalen");
-        final String query = "query($id: ID!) { version(id: $id) { parentId arrangement { numberId } } }";
-        final String firstArrangement = graphQl(EDITOR).document(query).variable("id", first).execute().path("version.parentId").entity(String.class).get();
-        final String firstNumber = graphQl(EDITOR).document(query).variable("id", first).execute().path("version.arrangement.numberId").entity(String.class).get();
-        final String secondArrangement = graphQl(EDITOR).document(query).variable("id", second).execute().path("version.parentId").entity(String.class).get();
-        final String secondNumber = graphQl(EDITOR).document(query).variable("id", second).execute().path("version.arrangement.numberId").entity(String.class).get();
-        final String merge = "mutation($id: ID!, $into: ID!) { numberMerge(id: $id, intoId: $into) { id } }";
-
-        graphQl(EDITOR).document("mutation($id: ID!) { arrangementTrash(id: $id) { id } }").variable("id", firstArrangement).execute();
-        expectError(graphQl(EDITOR).document(merge).variable("id", firstNumber).variable("into", secondNumber).execute(), "CONFLICT");
-        expectError(graphQl(EDITOR).document(merge).variable("id", secondNumber).variable("into", firstNumber).execute(), "CONFLICT");
-
-        // Both in the trash: the versions stay in the trash with the arrangement they join
-        graphQl(EDITOR).document("mutation($id: ID!) { arrangementTrash(id: $id) { id } }").variable("id", secondArrangement).execute();
-        graphQl(EDITOR).document(merge).variable("id", firstNumber).variable("into", secondNumber).execute().path("numberMerge.id").hasValue();
-        graphQl(EDITOR).document("{ trash { arrangements { id versions { id } } } }").execute()
-                .path("trash.arrangements[*].id").entityList(String.class).containsExactly(secondArrangement);
-        graphQl(EDITOR).document("query($id: ID!) { version(id: $id) { trashed parentId } }").variable("id", first).execute()
-                .path("version.trashed").entity(Boolean.class).isEqualTo(true)
-                .path("version.parentId").entity(String.class).isEqualTo(secondArrangement);
     }
 
     @Test

@@ -23,6 +23,7 @@ import nu.fgv.archive.server.material.MaterialService;
 import nu.fgv.archive.server.material.MaterialService.TrashDto;
 import nu.fgv.archive.server.settings.SettingsService;
 import nu.fgv.archive.server.settings.SettingsService.SettingsDto;
+import nu.fgv.archive.server.settings.SettingsService.SettingsInput;
 import nu.fgv.archive.server.user.CallerService;
 import org.jspecify.annotations.Nullable;
 import org.springframework.data.domain.Page;
@@ -72,7 +73,7 @@ public class AdminGraphqlApi {
     }
 
     @MutationMapping
-    public SettingsDto settingsUpdate(@Argument final SettingsDto input) {
+    public SettingsDto settingsUpdate(@Argument final SettingsInput input) {
         return settingsService.update(input);
     }
 

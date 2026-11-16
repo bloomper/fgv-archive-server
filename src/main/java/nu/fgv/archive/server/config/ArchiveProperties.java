@@ -26,25 +26,34 @@ import java.util.List;
  *
  * @param timeZone the zone the jobs' schedules and "today" are in
  * @param webUrl   the web's address, for the links in emails
+ * @param baseUrl  the API's public address, e.g. {@code https://api.archive.fgv.local.nu:8443}, for the MCP endpoint's
+ *                 address, which MCP tokens must have as audience
  * @author Anders Jacobsson
  * @since 1.0
  */
 @ConfigurationProperties(prefix = "archive")
 public record ArchiveProperties(String timeZone,
                                 String webUrl,
+                                String baseUrl,
                                 Keycloak keycloak,
                                 Security security,
+                                Mcp mcp,
                                 Storage storage,
                                 Worker worker,
-                                Spexregister spexregister,
+                                Spexipedia spexipedia,
                                 Mail mail,
                                 Data data) {
 
-    public record Keycloak(String url, String realm, String serviceClientId, String serviceClientSecret,
-                           String adminClientId, String adminClientSecret) {
+    public record Keycloak(String url, String realm, String serviceClientId, String serviceClientSecret) {
     }
 
     public record Security(List<String> authorizedParties) {
+    }
+
+    /**
+     * @param authorizedParties the Keycloak clients whose tokens the MCP endpoint accepts, e.g. {@code fgv-archive-mcp}
+     */
+    public record Mcp(List<String> authorizedParties) {
     }
 
     /**
@@ -59,12 +68,17 @@ public record ArchiveProperties(String timeZone,
     public record Worker(boolean enabled) {
     }
 
-    public record Spexregister(String graphqlUrl) {
+    /**
+     * @param graphqlUrl  Spexipedia's GraphQL API, e.g. {@code http://spexipedia-api:8080/api/graphql}
+     * @param webUrl      Spexipedia's web, for links to its pages; empty for none
+     * @param syncEnabled whether to follow its change feed
+     */
+    public record Spexipedia(String graphqlUrl, String webUrl, boolean syncEnabled) {
     }
 
     public record Mail(String from) {
     }
 
-    public record Data(boolean importSampleData, String sampleDataSize, String sampleUserPassword) {
+    public record Data(boolean importSampleData, String sampleDataSize) {
     }
 }

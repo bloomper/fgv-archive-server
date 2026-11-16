@@ -37,7 +37,7 @@ import java.util.stream.Collectors;
 
 /**
  * The parts of a spex' arrangements, in the order of the show (product spec 4.5): for every number shown for the spex
- * (its own, or its original's for a revival without any), the arrangement's best version that may be used, and of it
+ * (for a revival, its original's and its own), the arrangement's best version that may be used, and of it
  * the parts the filter matches, or every part without a filter. The best version is the one used in the spex, else
  * the recommended one, else the newest. Used for zips across a spex and for share links made for instruments, which so
  * open parts added later. Runs in the caller's transaction.
@@ -63,12 +63,8 @@ public class SpexParts {
      * @param usable which versions may be used, e.g. those the caller may open
      */
     public List<Part> find(final UUID spexId, final PartFilter filter, final Predicate<MaterialVersion> usable) {
-        List<SpexNumber> numbers = numberRepository.findBySpexIdOrderByPositionAscIdAsc(spexId);
         final SpexDto spex = spexService.byIds(List.of(spexId)).get(spexId);
-
-        if (numbers.isEmpty() && spex != null && spex.parentId() != null) {
-            numbers = numberRepository.findBySpexIdOrderByPositionAscIdAsc(spex.parentId());
-        }
+        final List<SpexNumber> numbers = numberRepository.inShowOrder(spexId, spex == null ? null : spex.parentId());
 
         final Map<UUID, Arrangement> arrangements = arrangementRepository.findByNumberIdIn(numbers.stream().map(SpexNumber::getUuid).toList())
                 .stream().filter(arrangement -> arrangement.getTrashedAt() == null)

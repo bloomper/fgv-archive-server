@@ -248,18 +248,14 @@ public class MaterialService {
     }
 
     /**
-     * The arrangements of a spex' numbers (its own, or its original's for a revival without any) that the caller sees,
+     * The arrangements of a spex' numbers (for a revival, its original's and its own) that the caller sees,
      * in the order of the show; with a key or a part filter, only those with a version that matches.
      */
     @Transactional(readOnly = true)
     public List<ArrangementDto> arrangementsOfSpex(final UUID spexId, final @Nullable MusicKey key, final PartFilter parts) {
         final Caller caller = user();
-        List<SpexNumber> numbers = numberRepository.findBySpexIdOrderByPositionAscIdAsc(spexId);
         final SpexDto spex = spexService.byIds(List.of(spexId)).get(spexId);
-
-        if (numbers.isEmpty() && spex != null && spex.parentId() != null) {
-            numbers = numberRepository.findBySpexIdOrderByPositionAscIdAsc(spex.parentId());
-        }
+        final List<SpexNumber> numbers = numberRepository.inShowOrder(spexId, spex == null ? null : spex.parentId());
 
         final Map<UUID, Arrangement> arrangements = arrangementRepository.findByNumberIdIn(numbers.stream().map(SpexNumber::getUuid).toList())
                 .stream().collect(Collectors.toMap(Arrangement::getNumberId, Function.identity()));
@@ -366,7 +362,7 @@ public class MaterialService {
                 .filter(entry -> familyOf.containsValue(entry.getValue()))
                 .map(Map.Entry::getKey)
                 .collect(Collectors.toSet());
-        final Map<UUID, UUID> numberFamily = numberRepository.findBySpexIdInOrderByPositionAscIdAsc(familySpex).stream()
+        final Map<UUID, UUID> numberFamily = numberRepository.findBySpexIdInOrderByActAscPositionAscIdAsc(familySpex).stream()
                 .collect(Collectors.toMap(SpexNumber::getUuid, number -> spexFamily.getOrDefault(number.getSpexId(), number.getSpexId())));
 
         if (!numberFamily.isEmpty()) {

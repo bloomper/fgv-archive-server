@@ -15,7 +15,7 @@
  */
 
 /**
- * Sample data for development, tests and staging: generated files, built on Spexregister's sample spex, and users with
+ * Sample data for development, tests and staging: generated files, built on Spexipedia's sample spex, and users with
  * one purpose each.
  */
 @NullMarked

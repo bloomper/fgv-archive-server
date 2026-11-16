@@ -19,23 +19,18 @@ package nu.fgv.archive.server.config;
 import org.keycloak.OAuth2Constants;
 import org.keycloak.admin.client.Keycloak;
 import org.keycloak.admin.client.KeycloakBuilder;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.context.annotation.Primary;
 
 /**
- * Two Keycloak admin clients. The service client ({@code fgv-archive-service}) reads the email addresses of the editors,
- * who are told about access requests. The admin client ({@code fgv-admin}) is used only by the sample data import, which
- * gives users roles.
+ * Keycloak's admin client as {@code fgv-archive-service}, which reads the email addresses of the editors, who are told
+ * about access requests. Spexarkivet never administers Keycloak: the sample users are fgv-infra-deploy's.
  *
  * @author Anders Jacobsson
  * @since 1.0
  */
 @Configuration(proxyBeanMethods = false)
 public class KeycloakConfig {
-
-    public static final String ADMIN = "keycloakAdmin";
 
     private static Keycloak build(final String url, final String realm, final String clientId, final String clientSecret) {
         return KeycloakBuilder.builder()
@@ -48,18 +43,9 @@ public class KeycloakConfig {
     }
 
     @Bean(destroyMethod = "close")
-    @Primary
     public Keycloak keycloakService(final ArchiveProperties properties) {
         final ArchiveProperties.Keycloak keycloak = properties.keycloak();
 
         return build(keycloak.url(), keycloak.realm(), keycloak.serviceClientId(), keycloak.serviceClientSecret());
-    }
-
-    @Bean(name = ADMIN, destroyMethod = "close")
-    @Qualifier(ADMIN)
-    public Keycloak keycloakAdmin(final ArchiveProperties properties) {
-        final ArchiveProperties.Keycloak keycloak = properties.keycloak();
-
-        return build(keycloak.url(), keycloak.realm(), keycloak.adminClientId(), keycloak.adminClientSecret());
     }
 }

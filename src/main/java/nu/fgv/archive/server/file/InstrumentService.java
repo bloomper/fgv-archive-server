@@ -16,6 +16,7 @@
 
 package nu.fgv.archive.server.file;
 
+import lombok.extern.slf4j.Slf4j;
 import nu.fgv.archive.server.audit.AuditService;
 import nu.fgv.archive.server.file.FileDtos.InstrumentDto;
 import nu.fgv.archive.server.file.FileDtos.InstrumentInput;
@@ -48,6 +49,7 @@ import java.util.stream.Collectors;
  * @author Anders Jacobsson
  * @since 1.0
  */
+@Slf4j
 @Service
 public class InstrumentService {
 
@@ -155,6 +157,9 @@ public class InstrumentService {
         final Instrument instrument = instrument(id);
         final long uses = repository.countUses(instrument.getId());
 
+        if (instrument.getTaskId() != null) {
+            throw new ConflictException("error.instrument.fromSpexipedia");
+        }
         if (uses > 0) {
             throw new ConflictException("error.instrument.inUse", uses);
         }
@@ -176,6 +181,15 @@ public class InstrumentService {
         if (instrument.getId().equals(into.getId())) {
             throw new BadRequestException("error.instrument.merge");
         }
+        if (instrument.getTaskId() != null) {
+            // It would come back with the next change to its task; merge the tasks in Spexipedia instead
+            throw new ConflictException("error.instrument.fromSpexipedia");
+        }
+        mergeInto(instrument, into);
+        return FileDtos.toDto(into);
+    }
+
+    private void mergeInto(final Instrument instrument, final Instrument into) {
         for (final ArchiveFile file : fileRepository.findByInstrument(instrument)) {
             final int at = file.getInstruments().indexOf(instrument);
 
@@ -207,11 +221,80 @@ public class InstrumentService {
         repository.removeShareLinks(instrument.getId());
         repository.delete(instrument);
         auditService.record("UPDATE", "INSTRUMENT", into.getUuid(), "Slog ihop instrumentet %s med %s".formatted(instrument.getNameSv(), into.getNameSv()));
-        return FileDtos.toDto(into);
+    }
+
+    // Spexipedia -------------------------------------------------------------------------------------------------------
+
+    /**
+     * A task changed in Spexipedia. A task in an instrument category, not retired, is an instrument here: the one
+     * linked to it, else the archive's own instrument with its name (or an abbreviation), which keeps its id, else a new
+     * one. The Swedish name follows the task. A linked instrument whose task is no longer one is retired.
+     *
+     * @param instrument whether the task is in an instrument category and not retired
+     */
+    @Transactional
+    public void syncTask(final UUID taskId, final String name, final boolean instrument) {
+        final Optional<Instrument> linked = repository.findByTaskId(taskId);
+
+        if (!instrument) {
+            linked.ifPresent(found -> found.setRetired(true));
+            return;
+        }
+
+        final Instrument target = linked.orElseGet(() -> matching(name).orElseGet(() -> created(name)));
+
+        if (target.getNameEn().equals(target.getNameSv())) {
+            target.setNameEn(name);
+        }
+        target.setNameSv(name);
+        target.setTaskId(taskId);
+        target.setRetired(false);
+        repository.save(target);
+    }
+
+    /**
+     * Spexipedia merged a task into another: their instruments are merged, or the instrument follows to the other task.
+     */
+    @Transactional
+    public void mergeTasks(final UUID taskId, final UUID intoTaskId) {
+        final Optional<Instrument> from = repository.findByTaskId(taskId);
+
+        if (from.isEmpty()) {
+            return;
+        }
+
+        final Optional<Instrument> into = repository.findByTaskId(intoTaskId);
+
+        if (into.isPresent()) {
+            mergeInto(from.get(), into.get());
+        } else {
+            from.get().setTaskId(intoTaskId);
+        }
+    }
+
+    private Optional<Instrument> matching(final String name) {
+        final String wanted = name.strip().toLowerCase(java.util.Locale.ROOT);
+        final List<Instrument> own = repository.findAllByOrderByPositionAscIdAsc().stream().filter(other -> other.getTaskId() == null).toList();
+
+        return own.stream().filter(other -> other.getNameSv().toLowerCase(java.util.Locale.ROOT).equals(wanted)).findFirst()
+                .or(() -> own.stream().filter(other -> other.abbreviationList().stream()
+                        .anyMatch(abbreviation -> abbreviation.toLowerCase(java.util.Locale.ROOT).equals(wanted))).findFirst());
+    }
+
+    private Instrument created(final String name) {
+        final Instrument instrument = new Instrument();
+
+        instrument.setNameSv(name);
+        instrument.setNameEn(name);
+        instrument.setGroup(InstrumentGroup.OTHER);
+        instrument.setPosition(repository.findAllByOrderByPositionAscIdAsc().stream().mapToInt(Instrument::getPosition).max().orElse(0) + 1);
+        log.info("New instrument {} from Spexipedia", name);
+        return instrument;
     }
 
     private void apply(final Instrument instrument, final InstrumentInput input) {
-        instrument.setNameSv(FileRoleService.name(input.nameSv()));
+        // An instrument from Spexipedia is named by its task there
+        instrument.setNameSv(instrument.getTaskId() != null ? instrument.getNameSv() : FileRoleService.name(input.nameSv()));
         instrument.setNameEn(FileRoleService.name(input.nameEn()));
         if (input.group() == null) {
             throw new BadRequestException("error.instrument.group");

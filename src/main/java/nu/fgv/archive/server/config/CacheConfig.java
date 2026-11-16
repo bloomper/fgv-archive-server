@@ -41,7 +41,7 @@ public class CacheConfig {
     public CacheManager cacheManager() {
         final CaffeineCacheManager cacheManager = new CaffeineCacheManager();
 
-        // Spexregister is asked once every few minutes, not every time a spex is missing from the copy
+        // Spexipedia is asked once every few minutes, not every time a spex is missing from the copy
         cacheManager.registerCustomCache(ALL_SPEX, Caffeine.newBuilder()
                 .expireAfterWrite(Duration.ofMinutes(5))
                 .maximumSize(1)

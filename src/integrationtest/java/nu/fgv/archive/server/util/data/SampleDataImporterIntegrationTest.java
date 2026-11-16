@@ -17,20 +17,20 @@
 package nu.fgv.archive.server.util.data;
 
 import nu.fgv.archive.server.AbstractIntegrationTest;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
-import org.keycloak.admin.client.Keycloak;
-import org.keycloak.admin.client.resource.RealmResource;
-import org.keycloak.representations.idm.RoleRepresentation;
 import org.springframework.beans.factory.annotation.Autowired;
 
 import java.io.IOException;
 import java.util.List;
 
+import static com.github.tomakehurst.wiremock.client.WireMock.aResponse;
+import static com.github.tomakehurst.wiremock.client.WireMock.containing;
+import static com.github.tomakehurst.wiremock.client.WireMock.post;
+import static com.github.tomakehurst.wiremock.client.WireMock.urlEqualTo;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * The sample data: built on Spexregister's sample spex and users, with share links in every status.
+ * The sample data: built on Spexipedia's sample spex and fgv-infra-deploy's sample users, with share links in every status.
  *
  * @author Anders Jacobsson
  * @since 1.0
@@ -40,37 +40,48 @@ class SampleDataImporterIntegrationTest extends AbstractIntegrationTest {
     @Autowired
     private SampleDataImporter importer;
 
-    @BeforeAll
-    static void spexregisterUsers() {
-        try (Keycloak admin = keycloakAdmin()) {
-            final RealmResource realm = admin.realm("fgv");
-
-            for (final String email : List.of(SampleDataImporter.ADMIN, SampleDataImporter.EDITOR, SampleDataImporter.USER)) {
-                if (realm.users().searchByEmail(email, true).isEmpty()) {
-                    grantClientRoles(realm, createUser(realm, email, "Exempel", List.of()), "spexregister", List.of("USER"));
-                }
-            }
-        }
-    }
-
-    private static List<String> archiveRoles(final String email) {
-        try (Keycloak admin = keycloakAdmin()) {
-            final RealmResource realm = admin.realm("fgv");
-            final String clientUuid = realm.clients().findByClientId(CLIENT_ID).getFirst().getId();
-
-            return realm.users().get(realm.users().searchByEmail(email, true).getFirst().getId()).roles().clientLevel(clientUuid)
-                    .listAll().stream().map(RoleRepresentation::getName).sorted().toList();
-        }
+    /**
+     * Spexipedia's feed with two originals, the newer with numbers.
+     */
+    private static void spexipediaFeed() {
+        SPEXIPEDIA.resetAll();
+        SPEXIPEDIA.stubFor(post(urlEqualTo("/api/graphql")).withRequestBody(containing("baseDataChanges"))
+                .willReturn(aResponse().withHeader("Content-Type", "application/json").withBody("""
+                        {"data": {"baseDataChanges": {"cursor": "9", "hasMore": false, "changes": [
+                          {"sequence": "1", "kind": "SPEX", "id": "00000000-0000-7000-8000-000000000002", "change": "UPSERT", "mergedIntoId": null,
+                           "spex": {"id": "00000000-0000-7000-8000-000000000002", "year": "2020", "title": "Ali Baba", "categoryId": null, "parentId": null, "retired": false}},
+                          {"sequence": "2", "kind": "SPEX", "id": "00000000-0000-7000-8000-000000000001", "change": "UPSERT", "mergedIntoId": null,
+                           "spex": {"id": "00000000-0000-7000-8000-000000000001", "year": "2024", "title": "Cleopatra", "categoryId": null, "parentId": null, "retired": false}},
+                  {"sequence": "3", "kind": "NUMBER", "id": "00000000-0000-7000-8000-0000000000e0", "change": "UPSERT", "mergedIntoId": null,
+                   "number": {"id": "00000000-0000-7000-8000-0000000000e0", "spexId": "00000000-0000-7000-8000-000000000001", "act": 1, "position": 1,
+                              "title": "Nummer 1", "originalTitle": null, "originalArtist": null, "retired": false}},
+                  {"sequence": "4", "kind": "NUMBER", "id": "00000000-0000-7000-8000-0000000000e1", "change": "UPSERT", "mergedIntoId": null,
+                   "number": {"id": "00000000-0000-7000-8000-0000000000e1", "spexId": "00000000-0000-7000-8000-000000000001", "act": 1, "position": 2,
+                              "title": "Nummer 2", "originalTitle": null, "originalArtist": null, "retired": false}},
+                  {"sequence": "5", "kind": "NUMBER", "id": "00000000-0000-7000-8000-0000000000e2", "change": "UPSERT", "mergedIntoId": null,
+                   "number": {"id": "00000000-0000-7000-8000-0000000000e2", "spexId": "00000000-0000-7000-8000-000000000001", "act": 1, "position": 3,
+                              "title": "Nummer 3", "originalTitle": null, "originalArtist": null, "retired": false}},
+                  {"sequence": "6", "kind": "NUMBER", "id": "00000000-0000-7000-8000-0000000000e3", "change": "UPSERT", "mergedIntoId": null,
+                   "number": {"id": "00000000-0000-7000-8000-0000000000e3", "spexId": "00000000-0000-7000-8000-000000000001", "act": 1, "position": 4,
+                              "title": "Nummer 4", "originalTitle": null, "originalArtist": null, "retired": false}},
+                  {"sequence": "7", "kind": "NUMBER", "id": "00000000-0000-7000-8000-0000000000e4", "change": "UPSERT", "mergedIntoId": null,
+                   "number": {"id": "00000000-0000-7000-8000-0000000000e4", "spexId": "00000000-0000-7000-8000-000000000001", "act": 1, "position": 5,
+                              "title": "Nummer 5", "originalTitle": null, "originalArtist": null, "retired": false}},
+                  {"sequence": "8", "kind": "NUMBER", "id": "00000000-0000-7000-8000-0000000000e5", "change": "UPSERT", "mergedIntoId": null,
+                   "number": {"id": "00000000-0000-7000-8000-0000000000e5", "spexId": "00000000-0000-7000-8000-000000000001", "act": 1, "position": 6,
+                              "title": "Nummer 6", "originalTitle": null, "originalArtist": null, "retired": false}}
+                        ]}}}""")));
     }
 
     @Test
     void importsMaterialUsersAndShareLinks() throws IOException {
+        spexipediaFeed();
         importer.importSampleData();
 
-        assertThat(archiveRoles(SampleDataImporter.ADMIN)).containsExactly("ADMIN", "EDITOR", "USER");
-        assertThat(archiveRoles(SampleDataImporter.EDITOR)).containsExactly("EDITOR", "USER");
-        assertThat(archiveRoles(SampleDataImporter.USER)).containsExactly("USER");
-        assertThat(archiveRoles(SampleDataImporter.NO_ACCESS)).isEmpty();
+        // fgv-infra-deploy's sample users, recorded by their fixed ids without asking Keycloak
+        assertThat(jdbcClient.sql("SELECT subject FROM app_user ORDER BY subject").query(String.class).list()).containsExactly(
+                "00000000-0000-4000-8000-000000000001", "00000000-0000-4000-8000-000000000002",
+                "00000000-0000-4000-8000-000000000003", "00000000-0000-4000-8000-000000000005");
         assertThat(jdbcClient.sql("SELECT COUNT(*) FROM manuscript").query(Long.class).single()).isPositive();
         assertThat(jdbcClient.sql("SELECT COUNT(*) FROM arrangement").query(Long.class).single()).isPositive();
         assertThat(jdbcClient.sql("SELECT COUNT(DISTINCT transposition_pitch) FROM archive_file WHERE transposition_pitch IS NOT NULL")

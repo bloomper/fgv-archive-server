@@ -32,7 +32,7 @@ The GraphQL API provides the error code in ``extensions.classification`` and a m
 |``NOT_FOUND``|The resource does not exist. Also returned for something the user may not see.
 |``BAD_REQUEST``|The input breaks a rule, e.g. an upload of a type the archive refuses, or a part without an instrument.
 |``CONFLICT``|Someone else changed the resource, or it is in use, e.g. a number with an arrangement, which is merged instead.
-|``SPEXREGISTER_UNAVAILABLE``|Spexregister cannot be reached.
+|``SPEXIPEDIA_UNAVAILABLE``|Spexipedia cannot be reached.
 |``DIRECTORY_UNAVAILABLE``|The FGV realm's users cannot be read in Keycloak.
 
 |===
@@ -53,16 +53,21 @@ Spexarkiv Server uses the following roles, which are client roles on ``fgv-archi
 
 |===
 
-Every service method resolves the caller and checks the role before it acts; GraphQL operations hold no rules of their own.
+Every service method resolves the caller and checks the role before it acts; GraphQL operations and MCP tools hold no rules of their own.
 
 [[archive]]
 == The archive
 
-The spex are copied from Spexregister (``spexList``, ``spex``, ``categories``, ``years``), all of them, every night and at the first start, so that the archive works while Spexregister is down and lists spex without material (``missingManuscripts``).
+Spex, their *numbers* and *characters* are copies of Spexipedia's, FGV's source of base data (``spexList``, ``spex``, ``categories``, ``years``), so that the archive works while Spexipedia is down and lists spex without material (``missingManuscripts``).
+The copies follow Spexipedia's change feed (``SYNC`` on ``fgv-spexipedia``, as ``fgv-archive-service``): the archive pulls it every five minutes, when Spexipedia calls ``POST /api/sync/notify`` (``NOTIFY``), and at the first start; ``SPEX_REFRESH`` reads it again from the start every night.
+A merge in Spexipedia moves material to the record merged into: a number's arrangement to the other number, or its versions into the other's arrangement.
+Spexipedia's service account reads the manuscripts of spex and the arrangements of numbers that have a published version, titles and ids only (``spexipediaLinks``, ``LINKS``).
 A revival is a spex of its own with its original as parent; a spex page shows the original and its revivals (``Spex.revivals``).
 
-*Numbers* are the archive's own until Spexipedia takes them over with the same ids: editors add them one at a time or pasted, one per line (``numbersPaste``), reorder them (``numbersReorder``), and merge a number that has an arrangement into another of the same spex (``numberMerge``); only a number without an arrangement is deleted.
-A revival without numbers of its own shows its original's (``Spex.numbersInherited``).
+Numbers are kept in Spexipedia, in acts (``Number.act``, ``Number.position``); a revival shows its original's (``Spex.numbersInherited``) and its own, and a number Spexipedia retired is shown only when it has an arrangement.
+
+*Instruments* are the tasks in Spexipedia's instrument categories (``Instrument.taskId``), named by them, plus the archive's own, which admins add.
+A task first matched an instrument of the archive with its name or an abbreviation, which kept its id; one whose task leaves those categories is retired (``Instrument.retired``) and no longer offered.
 
 *Manuscripts* belong to an original spex and *arrangements* to a number; both have *versions*, created unpublished with their first version, Original.
 Users see published versions outside the trash, and a manuscript or arrangement once it has one; editors see everything.

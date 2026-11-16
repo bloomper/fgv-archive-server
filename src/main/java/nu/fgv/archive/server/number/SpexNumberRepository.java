@@ -36,9 +36,14 @@ public interface SpexNumberRepository extends JpaRepository<SpexNumber, Long> {
 
     List<SpexNumber> findByUuidIn(Collection<UUID> uuids);
 
-    List<SpexNumber> findBySpexIdOrderByPositionAscIdAsc(UUID spexId);
+    List<SpexNumber> findBySpexIdInOrderByActAscPositionAscIdAsc(Collection<UUID> spexIds);
 
-    List<SpexNumber> findBySpexIdInOrderByPositionAscIdAsc(Collection<UUID> spexIds);
+    /**
+     * The numbers of a spex in the order of the show: for a revival, its original's and its own.
+     */
+    default List<SpexNumber> inShowOrder(final UUID spexId, final @org.jspecify.annotations.Nullable UUID parentId) {
+        return findBySpexIdInOrderByActAscPositionAscIdAsc(parentId == null ? List.of(spexId) : List.of(parentId, spexId));
+    }
 
     /**
      * Numbers whose title, original song, lyricist or composer contain the text, regardless of case.

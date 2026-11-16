@@ -46,9 +46,9 @@ services:
       MAIL_FROM: noreply@fgv.local.nu
       API_WEB_URL: ${API_WEB_URL}
       API_KEYCLOAK_REALM: ${API_KEYCLOAK_REALM}
-      API_KEYCLOAK_ADMIN_CLIENT_ID: ${API_KEYCLOAK_ADMIN_CLIENT_ID}
       API_STORAGE_ROOT: /data/archive
-      API_SPEXREGISTER_GRAPHQL_URL: http://spexregister-api:8080/api/graphql
+      API_SPEXIPEDIA_GRAPHQL_URL: http://spexipedia-api:8080/api/graphql
+      SPEXIPEDIA_WEB_URL: ${SPEXIPEDIA_WEB_URL:-https://spexipedia.fgv.local.nu:8443}
       API_IMPORT_SAMPLE_DATA: ${API_IMPORT_SAMPLE_DATA:-false}
       API_SAMPLE_DATA_SIZE: ${API_SAMPLE_DATA_SIZE:-small}
       SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK_SET_URI: http://keycloak-server:8080/auth/realms/fgv/protocol/openid-connect/certs
@@ -72,7 +72,6 @@ services:
     secrets:
       - source: FGV_ARCHIVE_MYSQL_USER_PASSWORD
         target: MYSQL_API_USER_PASSWORD
-      - API_KEYCLOAK_ADMIN_CLIENT_SECRET
       - API_KEYCLOAK_SERVICE_CLIENT_SECRET
 
 volumes:
@@ -105,7 +104,5 @@ secrets:
     file: .docker/secrets/FGV_ARCHIVE_MYSQL_ROOT_PASSWORD
   FGV_ARCHIVE_MYSQL_USER_PASSWORD:
     file: .docker/secrets/FGV_ARCHIVE_MYSQL_USER_PASSWORD
-  API_KEYCLOAK_ADMIN_CLIENT_SECRET:
-    file: .docker/secrets/API_KEYCLOAK_ADMIN_CLIENT_SECRET
   API_KEYCLOAK_SERVICE_CLIENT_SECRET:
     file: .docker/secrets/API_KEYCLOAK_SERVICE_CLIENT_SECRET

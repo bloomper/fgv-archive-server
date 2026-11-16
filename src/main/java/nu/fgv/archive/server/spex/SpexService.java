@@ -17,7 +17,6 @@
 package nu.fgv.archive.server.spex;
 
 import lombok.extern.slf4j.Slf4j;
-import net.javacrumbs.shedlock.spring.annotation.SchedulerLock;
 import nu.fgv.archive.server.user.CallerService;
 import nu.fgv.archive.server.util.error.BadRequestException;
 import org.jspecify.annotations.Nullable;
@@ -25,8 +24,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
-import java.time.Clock;
-import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
@@ -43,7 +40,7 @@ import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 /**
- * The archive's copy of Spexregister's spex: refreshed every night, read for browsing, and the families of originals and
+ * The archive's copy of Spexipedia's spex ({@link SpexipediaSync}): read for browsing, and the families of originals and
  * their revivals that material is grouped by.
  *
  * @author Anders Jacobsson
@@ -58,16 +55,14 @@ public class SpexService {
             .thenComparing(spex -> spex.title() == null ? "" : spex.title());
 
     private final SpexRepository repository;
-    private final SpexregisterClient client;
+    private final SpexCharacterRepository characterRepository;
     private final CallerService callerService;
-    private final Clock clock;
 
-    public SpexService(final SpexRepository repository, final SpexregisterClient client, final CallerService callerService,
-                       final Clock clock) {
+    public SpexService(final SpexRepository repository, final SpexCharacterRepository characterRepository,
+                       final CallerService callerService) {
         this.repository = repository;
-        this.client = client;
+        this.characterRepository = characterRepository;
         this.callerService = callerService;
-        this.clock = clock;
     }
 
     private static boolean matches(final SpexDto spex, final SpexFilter filter) {
@@ -84,39 +79,6 @@ public class SpexService {
                     || (spex.year() != null && spex.year().toString().equals(q));
         }
         return true;
-    }
-
-    /**
-     * Copies every spex from Spexregister, adding new ones and updating the others. Spex that have left Spexregister are
-     * kept, since material may refer to them.
-     *
-     * @throws SpexregisterClient.SpexregisterCallException when Spexregister cannot be reached
-     */
-    @SchedulerLock(name = "spex-refresh", lockAtMostFor = "PT30M")
-    @Transactional
-    public void refresh() {
-        final Map<UUID, Spex> existing = repository.findAll().stream().collect(Collectors.toMap(Spex::getUuid, Function.identity()));
-        final Instant now = clock.instant();
-        int added = 0;
-
-        for (final SpexregisterClient.RemoteSpex remote : client.allSpex()) {
-            Spex spex = existing.get(remote.id());
-
-            if (spex == null) {
-                spex = new Spex();
-                spex.setUuid(remote.id());
-                added++;
-            }
-            spex.setParentId(remote.parentId());
-            spex.setTitle(remote.title());
-            spex.setYear(remote.year());
-            spex.setRevival(remote.revival());
-            spex.setCategoryId(remote.categoryId());
-            spex.setCategoryName(remote.categoryName());
-            spex.setRefreshedAt(now);
-            repository.save(spex);
-        }
-        log.info("Refreshed the spex from Spexregister, {} new", added);
     }
 
     /**
@@ -229,6 +191,39 @@ public class SpexService {
         callerService.current().requireUser();
         return repository.findAll().stream().map(Spex::getYear).filter(Objects::nonNull).distinct()
                 .sorted(Comparator.reverseOrder()).toList();
+    }
+
+    /**
+     * The characters of each spex: for a revival, its original's, then its own.
+     */
+    @Transactional(readOnly = true)
+    public Map<UUID, List<CharacterDto>> characters(final Collection<UUID> spexIds) {
+        callerService.current().requireUser();
+
+        final Map<UUID, SpexDto> known = byIds(spexIds);
+        final Set<UUID> wanted = new HashSet<>(spexIds);
+
+        known.values().forEach(dto -> wanted.add(dto.familyId()));
+
+        final Map<UUID, List<CharacterDto>> found = characterRepository.findBySpexIdInAndRetiredFalseOrderByPositionAscIdAsc(wanted).stream()
+                .map(character -> new CharacterDto(character.getUuid(), character.getSpexId(), character.getName(), character.getPosition()))
+                .collect(Collectors.groupingBy(CharacterDto::spexId, LinkedHashMap::new, Collectors.toList()));
+        final Map<UUID, List<CharacterDto>> result = new LinkedHashMap<>();
+
+        for (final UUID id : spexIds) {
+            final SpexDto dto = known.get(id);
+            final List<CharacterDto> all = new ArrayList<>();
+
+            if (dto != null && dto.parentId() != null) {
+                all.addAll(found.getOrDefault(dto.parentId(), List.of()));
+            }
+            all.addAll(found.getOrDefault(id, List.of()));
+            result.put(id, all);
+        }
+        return result;
+    }
+
+    public record CharacterDto(UUID id, UUID spexId, String name, int position) {
     }
 
     public record SpexFilter(@Nullable UUID categoryId, @Nullable Integer year, @Nullable String q,

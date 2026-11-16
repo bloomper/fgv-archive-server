@@ -31,8 +31,8 @@ import org.jspecify.annotations.Nullable;
 import java.util.UUID;
 
 /**
- * A number (song) of a spex, in the order of the show. Kept by Spexarkiv's editors until Spexipedia takes the numbers
- * over with the same ids; arrangements refer to it by its id.
+ * A number (song) of a spex, in the order of the show: a copy of one in Spexipedia, kept from its change feed by the
+ * same id, which arrangements refer to. Credits stay in Spexipedia.
  *
  * @author Anders Jacobsson
  * @since 1.0
@@ -53,8 +53,20 @@ public class SpexNumber extends AbstractAuditable {
     @Column(name = "spex_id", nullable = false, length = 36)
     private UUID spexId;
 
+    @Column(name = "act", nullable = false)
+    private int act = 1;
+
+    /**
+     * The position in the act.
+     */
     @Column(name = "position", nullable = false)
     private int position;
+
+    /**
+     * Whether Spexipedia no longer has it on the spex; an arrangement of it stays.
+     */
+    @Column(name = "retired", nullable = false)
+    private boolean retired;
 
     @Column(name = "title", nullable = false)
     private String title;

@@ -14,22 +14,10 @@
  * limitations under the License.
  */
 
-package nu.fgv.archive.server.util.error;
-
-import org.springframework.http.HttpStatus;
-import org.springframework.web.server.ResponseStatusException;
-
 /**
- * Spexregister could not be reached when it was needed.
- *
- * @author Anders Jacobsson
- * @since 1.0
+ * MCP tools, thin read-only adapters over the services, which decide access as they do for GraphQL.
  */
-public class SpexregisterUnavailableException extends ResponseStatusException {
+@NullMarked
+package nu.fgv.archive.server.mcp;
 
-    public static final String MESSAGE_CODE = "error.spexregister.unavailable";
-
-    public SpexregisterUnavailableException(final Throwable cause) {
-        super(HttpStatus.SERVICE_UNAVAILABLE, MESSAGE_CODE, cause, MESSAGE_CODE, null);
-    }
-}
+import org.jspecify.annotations.NullMarked;

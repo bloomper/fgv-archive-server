@@ -27,11 +27,16 @@ import java.util.UUID;
  * @since 1.0
  */
 public record SpexDto(UUID id, @Nullable String title, @Nullable Integer year, boolean revival, @Nullable UUID parentId,
-                      @Nullable UUID categoryId, @Nullable String categoryName) {
+                      @Nullable UUID categoryId, @Nullable String categoryName, boolean retired) {
+
+    public SpexDto(final UUID id, final @Nullable String title, final @Nullable Integer year, final boolean revival,
+                   final @Nullable UUID parentId, final @Nullable UUID categoryId, final @Nullable String categoryName) {
+        this(id, title, year, revival, parentId, categoryId, categoryName, false);
+    }
 
     public static SpexDto of(final Spex spex) {
         return new SpexDto(spex.getUuid(), spex.getTitle(), spex.getYear(), spex.isRevival(), spex.getParentId(),
-                spex.getCategoryId(), spex.getCategoryName());
+                spex.getCategoryId(), spex.getCategoryName(), spex.isRetired());
     }
 
     /**

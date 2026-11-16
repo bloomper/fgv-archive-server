@@ -80,7 +80,7 @@ public class SettingsService {
     }
 
     @Transactional
-    public SettingsDto update(final SettingsDto input) {
+    public SettingsDto update(final SettingsInput input) {
         final Caller caller = callerService.current();
 
         caller.requireAdmin();
@@ -114,7 +114,7 @@ public class SettingsService {
     }
 
     /**
-     * The settings as the GraphQL API shows and takes them.
+     * The settings as the GraphQL API shows them.
      *
      * @param manuscriptRestricted    whether new manuscript versions start restricted
      * @param arrangementRestricted   whether new arrangement versions start restricted
@@ -123,6 +123,16 @@ public class SettingsService {
      */
     public record SettingsDto(@Nullable String welcomeSv, @Nullable String welcomeEn, int maxUploadMb,
                               boolean manuscriptRestricted, boolean arrangementRestricted, int maxShareLinkMonths,
-                              @Nullable List<String> accessRequestRecipients) {
+                              List<String> accessRequestRecipients) {
+    }
+
+    /**
+     * The settings as the GraphQL API takes them, as {@link SettingsDto} but the recipients may be left out.
+     *
+     * @param accessRequestRecipients who is told about access requests; null or empty for everyone with EDITOR
+     */
+    public record SettingsInput(@Nullable String welcomeSv, @Nullable String welcomeEn, int maxUploadMb,
+                                boolean manuscriptRestricted, boolean arrangementRestricted, int maxShareLinkMonths,
+                                @Nullable List<String> accessRequestRecipients) {
     }
 }

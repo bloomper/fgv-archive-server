@@ -3,11 +3,12 @@
 ## Overview
 
 Spexarkiv Server is the backend of Spexarkiv, FGV's archive of the spex' manuscripts and musical arrangements,
-with their versions and files. It is a Spring Boot application with a GraphQL API and plain HTTP endpoints for files
-(with byte ranges, for reading PDFs in the browser), previews, zips, share links and resumable (tus) uploads. A worker,
+with their versions and files. It is a Spring Boot application with a GraphQL API, plain HTTP endpoints for files
+(with byte ranges, for reading PDFs in the browser), previews, zips, share links and resumable (tus) uploads, and a
+read-only MCP server for AI assistants at `/api/mcp`. A worker,
 the same image with `API_WORKER_ENABLED=true`, reads the files' page counts and text for search with PDFBox and Apache
 Tika and renders their first-page previews. It is backed by MySQL, a storage folder and Keycloak ([fgv-keycloak][1]) for
-authentication, and reads spex from Spexregister. [Spexarkiv Web][2] is its frontend and [fgv-archive-deploy][3] runs
+authentication, and reads spex from Spexipedia. [Spexarkiv Web][2] is its frontend and [fgv-archive-deploy][3] runs
 it on a server.
 
 The product spec is in [fgv-archive-spec][4].

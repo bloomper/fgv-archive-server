@@ -30,8 +30,8 @@ import java.time.Instant;
 import java.util.UUID;
 
 /**
- * A copy of a spex in Spexregister (later Spexipedia), by its id there, so that the archive works while Spexregister is
- * unavailable. Refreshed every night. A revival is a spex of its own, with its original as parent.
+ * A copy of a spex in Spexipedia, by its id there, so that the archive works while Spexipedia is unavailable. Kept from
+ * its change feed. A revival is a spex of its own, with its original as parent.
  *
  * @author Anders Jacobsson
  * @since 1.0
@@ -69,6 +69,12 @@ public class Spex {
 
     @Column(name = "refreshed_at", nullable = false)
     private Instant refreshedAt;
+
+    /**
+     * Whether Spexipedia no longer offers it for new use; material about it stays.
+     */
+    @Column(name = "retired", nullable = false)
+    private boolean retired;
 
     /**
      * The original spex: the parent of a revival, else the spex itself. Revivals share it with their original.

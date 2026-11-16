@@ -149,7 +149,6 @@ public abstract class AbstractIntegrationTest {
         registry.add("spring.security.oauth2.client.registration.fgv-archive-service.client-secret", () -> SECRETS.get("fgv-archive-service"));
         registry.add("archive.keycloak.url", KEYCLOAK::getAuthServerUrl);
         registry.add("archive.keycloak.service-client-secret", () -> SECRETS.get("fgv-archive-service"));
-        registry.add("archive.keycloak.admin-client-secret", () -> SECRETS.get("fgv-admin"));
         registry.add("archive.storage.root", STORAGE::toString);
         registry.add("archive.spexipedia.graphql-url", () -> SPEXIPEDIA.baseUrl() + "/api/graphql");
         // Tests apply the feed themselves

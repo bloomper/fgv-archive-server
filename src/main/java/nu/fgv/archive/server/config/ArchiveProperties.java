@@ -40,8 +40,7 @@ public record ArchiveProperties(String timeZone,
                                 Mail mail,
                                 Data data) {
 
-    public record Keycloak(String url, String realm, String serviceClientId, String serviceClientSecret,
-                           String adminClientId, String adminClientSecret) {
+    public record Keycloak(String url, String realm, String serviceClientId, String serviceClientSecret) {
     }
 
     public record Security(List<String> authorizedParties) {
@@ -70,6 +69,6 @@ public record ArchiveProperties(String timeZone,
     public record Mail(String from) {
     }
 
-    public record Data(boolean importSampleData, String sampleDataSize, String sampleUserPassword) {
+    public record Data(boolean importSampleData, String sampleDataSize) {
     }
 }

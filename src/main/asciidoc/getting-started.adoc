@@ -83,7 +83,6 @@ To see a changed placeholder after a pull, undo it with ``git update-index --no-
 |FGV_ARCHIVE_MYSQL_ROOT_PASSWORD|The password for the root user of Spexarkiv Server's database||verysecret
 |FGV_ARCHIVE_MYSQL_USER_PASSWORD|The password for the user of Spexarkiv Server's database||secret
 |API_KEYCLOAK_SERVICE_CLIENT_SECRET|The client secret of ``fgv-archive-service``, with which Spexarkiv Server reads Spexipedia's change feed and the editors' email addresses from Keycloak|Must match the value in ``realm/fgv.json`` in fgv-keycloak, search for ``fgv-archive-service`` and pick the value for ``secret`` in the same section|
-|API_KEYCLOAK_ADMIN_CLIENT_SECRET|The client secret of ``fgv-admin``, with which the sample data import gives users roles|Must match the value in ``realm/fgv.json``, search for ``fgv-admin``|
 
 |===
 
@@ -97,7 +96,6 @@ There are also configuration parameters in ``.env`` that can be tweaked if so de
 |FGV_ARCHIVE_MYSQL_USER|The user of Spexarkiv Server's database|archive
 |API_WEB_URL|The web's address, for the links in the emails about access requests|http://localhost:3005
 |API_KEYCLOAK_REALM|The Keycloak realm of Spexarkiv Server|fgv
-|API_KEYCLOAK_ADMIN_CLIENT_ID|The Keycloak admin client id of Spexarkiv Server|fgv-admin
 |API_KEYCLOAK_CLIENT_CLIENT_ID|The Keycloak client id of Spexarkiv Web|fgv-archive
 |API_IMPORT_SAMPLE_DATA|A flag determining whether to import sample data or not|false
 |API_SAMPLE_DATA_SIZE|``small`` (material for about 10 spex) or ``large`` (about 150, with very short files)|small
@@ -142,7 +140,7 @@ When the ``archive-api`` container isn't running, Caddy forwards ``https://api.a
 ----
 $ docker compose up -d archive-mysql
 $ MYSQL_API_USER_PASSWORD=<FGV_ARCHIVE_MYSQL_USER_PASSWORD> \
-  API_KEYCLOAK_SERVICE_CLIENT_SECRET=<…> API_KEYCLOAK_ADMIN_CLIENT_SECRET=<…> \
+  API_KEYCLOAK_SERVICE_CLIENT_SECRET=<…> \
   ./gradlew bootRun --args='--spring.profiles.active=local'
 ----
 
@@ -177,20 +175,13 @@ Files are served only by the API, after an access check, so trashed files stay w
 
 If ``API_IMPORT_SAMPLE_DATA`` is set to ``true``, the database is replaced and the storage folders are emptied at every start (it refuses in the Spring profile ``production``).
 None of the data can be traced to real individuals, i.e. no personally identifiable information (PII).
-The import needs the secret of ``fgv-admin``.
 
 The sample data is built on Spexipedia's and Spexregister's, so both must run with ``API_IMPORT_SAMPLE_DATA=true``:
 
 * The material belongs to Spexipedia's sample spex and numbers, read from its change feed, newest first; the oldest spex keep no material, for the lists of what is missing.
 The import waits up to 5 minutes for Spexipedia.
-* Spexregister's sample users get roles on ``fgv-archive`` (see <<test_credentials>>).
-The import refuses to run without them, which keeps it away from real environments.
-
-[sidebar]
-.NOTE
---
-Spexregister's import deletes all Keycloak users at every start, so restart Spexarkiv Server after Spexregister.
---
+* The sample users are fgv-infra-deploy's (``bin/seed-users.sh``), with their roles on ``fgv-archive`` there (see <<test_credentials>>).
+The import records them by their fixed ids and never asks Keycloak, so it needs no admin client and does not wait for Spexregister.
 
 The import generates, for about 10 spex (about 150 with ``API_SAMPLE_DATA_SIZE=large``), numbers (a revival with numbers of its own every other time), manuscripts of 20–80 pages with searchable Swedish text (the word ``kungamantel`` occurs on every page but the first), revival rewrites, drafts, a scanned page without text, DOCX sources, and arrangements for all numbers but the last, with original and revival versions in several keys (one with a modulation, one transposed to D), instrumentation, a score and full sets of parts: a trumpet part in B♭ and the same in C, a part for alto or tenor saxophone, a horn part in F, MusicXML and MIDI files.
 There are restricted, open and unpublished versions, items in the trash, an open and a handled access request, download logs and audit log entries.
@@ -210,7 +201,7 @@ The username is ``KEYCLOAK_ADMIN`` in fgv-infra-deploy's ``local/.env`` and the 
 === Setup
 
 The realm is defined by ``realm/fgv.json`` in fgv-keycloak, whose README describes what it contains.
-Spexarkiv uses its clients ``fgv-archive`` (the web, and Spexarkiv's roles), ``fgv-archive-service`` (Spexipedia's change feed with ``SYNC`` on ``fgv-spexipedia``, and the editors' email addresses) and ``fgv-admin`` (the sample data's users).
+Spexarkiv uses its clients ``fgv-archive`` (the web, and Spexarkiv's roles) and ``fgv-archive-service`` (Spexipedia's change feed with ``SYNC`` on ``fgv-spexipedia``, and the editors' email addresses).
 Reading the editors needs ``realm-management``'s ``view-users`` and ``view-clients`` on ``fgv-archive-service``; without ``view-clients`` the emails about access requests go only to the recipients in the settings.
 
 The integration tests import a copy of ``fgv.json`` at ``src/integrationtest/resources/realm/fgv.json``.
@@ -261,8 +252,7 @@ $ ./gradlew build              # all of the above, plus this documentation
 [[test_credentials]]
 == Test credentials
 
-The following test users have roles on ``fgv-archive`` when sample data is imported (see <<sample_data>>), with the password in ``SAMPLE_USER_PASSWORD`` (``s3cr3t-s3cr3t`` in the ``local`` profile, the same as Spexregister's; every other environment must set it).
-The first three are Spexregister's sample users, which are the same in every FGV application.
+The following test users have roles on ``fgv-archive``, from fgv-infra-deploy's ``bin/seed-users.sh`` (``sample-users.tsv``), which creates them, with the same ids and password, in every FGV application: ``s3cr3t-s3cr3t`` locally, its ``secrets/SAMPLE_USER_PASSWORD`` on staging.
 
 |===
 |Username|Roles on ``fgv-archive``|Comment
@@ -270,7 +260,7 @@ The first three are Spexregister's sample users, which are the same in every FGV
 |admin@fgv.nu|``USER``, ``EDITOR``, ``ADMIN``|
 |editor@fgv.nu|``USER``, ``EDITOR``|Has made the share links and the audit log's changes
 |user@fgv.nu|``USER``|Has asked for access to two restricted parts (open), and earlier for a score (handled by editor@fgv.nu)
-|no-access@fgv.nu|None|Created by the import when missing; shared with Spexify's and Spexflix's sample data
+|no-access@fgv.nu|None|Shared with Spexify's and Spexflix's sample data
 
 |===
 

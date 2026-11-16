@@ -17,11 +17,7 @@
 package nu.fgv.archive.server.util.data;
 
 import nu.fgv.archive.server.AbstractIntegrationTest;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
-import org.keycloak.admin.client.Keycloak;
-import org.keycloak.admin.client.resource.RealmResource;
-import org.keycloak.representations.idm.RoleRepresentation;
 import org.springframework.beans.factory.annotation.Autowired;
 
 import java.io.IOException;
@@ -34,7 +30,7 @@ import static com.github.tomakehurst.wiremock.client.WireMock.urlEqualTo;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * The sample data: built on Spexregister's sample spex and users, with share links in every status.
+ * The sample data: built on Spexipedia's sample spex and fgv-infra-deploy's sample users, with share links in every status.
  *
  * @author Anders Jacobsson
  * @since 1.0
@@ -43,29 +39,6 @@ class SampleDataImporterIntegrationTest extends AbstractIntegrationTest {
 
     @Autowired
     private SampleDataImporter importer;
-
-    @BeforeAll
-    static void spexregisterUsers() {
-        try (Keycloak admin = keycloakAdmin()) {
-            final RealmResource realm = admin.realm("fgv");
-
-            for (final String email : List.of(SampleDataImporter.ADMIN, SampleDataImporter.EDITOR, SampleDataImporter.USER)) {
-                if (realm.users().searchByEmail(email, true).isEmpty()) {
-                    grantClientRoles(realm, createUser(realm, email, "Exempel", List.of()), "spexregister", List.of("USER"));
-                }
-            }
-        }
-    }
-
-    private static List<String> archiveRoles(final String email) {
-        try (Keycloak admin = keycloakAdmin()) {
-            final RealmResource realm = admin.realm("fgv");
-            final String clientUuid = realm.clients().findByClientId(CLIENT_ID).getFirst().getId();
-
-            return realm.users().get(realm.users().searchByEmail(email, true).getFirst().getId()).roles().clientLevel(clientUuid)
-                    .listAll().stream().map(RoleRepresentation::getName).sorted().toList();
-        }
-    }
 
     /**
      * Spexipedia's feed with two originals, the newer with numbers.
@@ -105,10 +78,10 @@ class SampleDataImporterIntegrationTest extends AbstractIntegrationTest {
         spexipediaFeed();
         importer.importSampleData();
 
-        assertThat(archiveRoles(SampleDataImporter.ADMIN)).containsExactly("ADMIN", "EDITOR", "USER");
-        assertThat(archiveRoles(SampleDataImporter.EDITOR)).containsExactly("EDITOR", "USER");
-        assertThat(archiveRoles(SampleDataImporter.USER)).containsExactly("USER");
-        assertThat(archiveRoles(SampleDataImporter.NO_ACCESS)).isEmpty();
+        // fgv-infra-deploy's sample users, recorded by their fixed ids without asking Keycloak
+        assertThat(jdbcClient.sql("SELECT subject FROM app_user ORDER BY subject").query(String.class).list()).containsExactly(
+                "00000000-0000-4000-8000-000000000001", "00000000-0000-4000-8000-000000000002",
+                "00000000-0000-4000-8000-000000000003", "00000000-0000-4000-8000-000000000005");
         assertThat(jdbcClient.sql("SELECT COUNT(*) FROM manuscript").query(Long.class).single()).isPositive();
         assertThat(jdbcClient.sql("SELECT COUNT(*) FROM arrangement").query(Long.class).single()).isPositive();
         assertThat(jdbcClient.sql("SELECT COUNT(DISTINCT transposition_pitch) FROM archive_file WHERE transposition_pitch IS NOT NULL")

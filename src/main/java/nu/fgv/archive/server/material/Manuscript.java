@@ -16,6 +16,10 @@
 
 package nu.fgv.archive.server.material;
 
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.FetchType;
+import nu.fgv.archive.server.document.DocumentKind;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
@@ -57,6 +61,11 @@ public class Manuscript extends AbstractAuditable {
 
     @Column(name = "spex_id", nullable = false, length = 36)
     private UUID spexId;
+
+    /** A document kind kept by admins (spec 4.1): a manuscript, a programme, a synopsis … */
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "kind_id", nullable = false)
+    private DocumentKind kind;
 
     @Column(name = "title", nullable = false)
     private String title;

@@ -63,7 +63,7 @@ public final class MaterialDtos {
 
     public static ManuscriptDto toDto(final Manuscript manuscript) {
         return new ManuscriptDto(manuscript.getUuid(), manuscript.getSpexId(), manuscript.getTitle(), manuscript.getAuthors(),
-                manuscript.getDescription(), manuscript.getTrashedAt() != null, manuscript.getCreatedAt());
+                manuscript.getDescription(), manuscript.getTrashedAt() != null, manuscript.getCreatedAt(), manuscript.getKind().getId());
     }
 
     public static ArrangementDto toDto(final Arrangement arrangement) {
@@ -90,7 +90,7 @@ public final class MaterialDtos {
     }
 
     public record ManuscriptDto(UUID id, UUID spexId, String title, @Nullable String authors,
-                                @Nullable String description, boolean trashed, Instant createdAt) {
+                                @Nullable String description, boolean trashed, Instant createdAt, long kindKey) {
     }
 
     public record ArrangementDto(UUID id, UUID numberId, @Nullable String description, boolean trashed,
@@ -109,8 +109,16 @@ public final class MaterialDtos {
     public record InstrumentationDto(InstrumentDto instrument, int count) {
     }
 
+    /**
+     * kindId: a document kind; the first when left out on a new document, unchanged when left out on an update.
+     */
     public record ManuscriptInput(@Nullable UUID spexId, @Nullable String title, @Nullable String authors,
-                                  @Nullable String description) {
+                                  @Nullable String description, @Nullable UUID kindId) {
+
+        public ManuscriptInput(final @Nullable UUID spexId, final @Nullable String title, final @Nullable String authors,
+                               final @Nullable String description) {
+            this(spexId, title, authors, description, null);
+        }
     }
 
     public record ArrangementInput(@Nullable UUID numberId, @Nullable String description) {

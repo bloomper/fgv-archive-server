@@ -16,6 +16,7 @@
 
 package nu.fgv.archive.server.material;
 
+import nu.fgv.archive.server.document.DocumentKindService;
 import nu.fgv.archive.server.audit.AuditService;
 import nu.fgv.archive.server.file.FileService;
 import nu.fgv.archive.server.file.Instrument;
@@ -90,6 +91,7 @@ public class MaterialService {
     private final MaterialVersionRepository versionRepository;
     private final SpexNumberRepository numberRepository;
     private final InstrumentRepository instrumentRepository;
+    private final DocumentKindService documentKinds;
     private final SpexService spexService;
     private final FileService fileService;
     private final SettingsService settingsService;
@@ -100,7 +102,8 @@ public class MaterialService {
     @SuppressWarnings("java:S107")
     public MaterialService(final ManuscriptRepository manuscriptRepository, final ArrangementRepository arrangementRepository,
                            final MaterialVersionRepository versionRepository, final SpexNumberRepository numberRepository,
-                           final InstrumentRepository instrumentRepository, final SpexService spexService,
+                           final InstrumentRepository instrumentRepository, final DocumentKindService documentKinds,
+                           final SpexService spexService,
                            final FileService fileService, final SettingsService settingsService,
                            final CallerService callerService, final AuditService auditService, final Clock clock) {
         this.manuscriptRepository = manuscriptRepository;
@@ -108,6 +111,7 @@ public class MaterialService {
         this.versionRepository = versionRepository;
         this.numberRepository = numberRepository;
         this.instrumentRepository = instrumentRepository;
+        this.documentKinds = documentKinds;
         this.spexService = spexService;
         this.fileService = fileService;
         this.settingsService = settingsService;
@@ -438,6 +442,7 @@ public class MaterialService {
         final Manuscript manuscript = new Manuscript();
 
         manuscript.setSpexId(spex.getUuid());
+        manuscript.setKind(documentKinds.require(input.kindId(), null));
         manuscript.setTitle(Objects.requireNonNullElse(text(input.title(), MAX_TEXT), Objects.requireNonNullElse(spex.getTitle(), "Manus")));
         manuscript.setAuthors(text(input.authors(), MAX_AUTHORS));
         manuscript.setDescription(longText(input.description()));
@@ -458,6 +463,7 @@ public class MaterialService {
         final Manuscript manuscript = manuscriptEntity(id);
 
         manuscript.setTitle(Objects.requireNonNullElse(text(input.title(), MAX_TEXT), manuscript.getTitle()));
+        manuscript.setKind(documentKinds.require(input.kindId(), manuscript.getKind()));
         manuscript.setAuthors(text(input.authors(), MAX_AUTHORS));
         manuscript.setDescription(longText(input.description()));
         auditService.record("UPDATE", "MANUSCRIPT", manuscript.getUuid(), "Ändrade manuset " + manuscript.getTitle());

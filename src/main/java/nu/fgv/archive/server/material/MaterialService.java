@@ -837,6 +837,81 @@ public class MaterialService {
         return arrangementRepository.findByUuid(id).orElseThrow(() -> new ResourceNotFoundException("error.arrangement.notFound", id));
     }
 
+    // ------------------------------------------------------------------------------------------- the import API
+
+    /** The optimistic-lock version of a document, an arrangement or a version, or null when it is gone. */
+    @Transactional(readOnly = true)
+    public @Nullable Long recordVersion(final UUID id) {
+        return manuscriptRepository.findByUuid(id).map(Manuscript::getLockVersion)
+                .or(() -> arrangementRepository.findByUuid(id).map(Arrangement::getLockVersion))
+                .or(() -> versionRepository.findByUuid(id).map(MaterialVersion::getLockVersion))
+                .orElse(null);
+    }
+
+    /**
+     * The arrangement of a number, if it has one: an import adds to it instead of failing on a second one.
+     */
+    @Transactional(readOnly = true)
+    public @Nullable UUID arrangementOfNumber(final UUID numberId) {
+        return arrangementRepository.findByNumberId(numberId).map(Arrangement::getUuid).orElse(null);
+    }
+
+    /**
+     * The version a new document or arrangement starts with ("Original", without files), when it is still its only
+     * one: the import's first version takes it over instead of adding a second.
+     */
+    @Transactional(readOnly = true)
+    public @Nullable UUID untouchedOriginal(final UUID parentId) {
+        final List<MaterialVersion> versions = manuscriptRepository.findByUuid(parentId).map(Manuscript::getVersions)
+                .or(() -> arrangementRepository.findByUuid(parentId).map(Arrangement::getVersions))
+                .orElse(List.of());
+
+        return versions.size() == 1 && versions.getFirst().getFiles().isEmpty() && !versions.getFirst().isPublished()
+                ? versions.getFirst().getUuid() : null;
+    }
+
+    /**
+     * EDITOR (an import's forget). Deletes an imported document, arrangement or version that nobody has published,
+     * with its files; returns whether it was deleted.
+     */
+    @Transactional
+    public boolean forget(final UUID id) {
+        callerService.current().requireEditor();
+
+        final Manuscript manuscript = manuscriptRepository.findByUuid(id).orElse(null);
+
+        if (manuscript != null) {
+            if (manuscript.getVersions().stream().anyMatch(MaterialVersion::isPublished)) {
+                return false;
+            }
+            List.copyOf(manuscript.getVersions()).forEach(this::deleteVersionEntity);
+            manuscriptRepository.delete(manuscript);
+            auditService.record("DELETE", "MANUSCRIPT", id, "Tog bort det importerade dokumentet " + manuscript.getTitle());
+            return true;
+        }
+
+        final Arrangement arrangement = arrangementRepository.findByUuid(id).orElse(null);
+
+        if (arrangement != null) {
+            if (arrangement.getVersions().stream().anyMatch(MaterialVersion::isPublished)) {
+                return false;
+            }
+            List.copyOf(arrangement.getVersions()).forEach(this::deleteVersionEntity);
+            arrangementRepository.delete(arrangement);
+            auditService.record("DELETE", "ARRANGEMENT", id, "Tog bort det importerade arrangemanget för " + numberTitle(arrangement));
+            return true;
+        }
+
+        final MaterialVersion version = versionRepository.findByUuid(id).orElse(null);
+
+        if (version == null || version.isPublished()) {
+            return false;
+        }
+        deleteVersionEntity(version);
+        auditService.record("DELETE", "VERSION", id, "Tog bort den importerade versionen " + version.getLabel());
+        return true;
+    }
+
     private MaterialVersion versionEntity(final UUID id) {
         return versionRepository.findByUuid(id).orElseThrow(() -> new ResourceNotFoundException("error.version.notFound", id));
     }

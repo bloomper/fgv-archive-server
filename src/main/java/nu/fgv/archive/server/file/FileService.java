@@ -16,6 +16,7 @@
 
 package nu.fgv.archive.server.file;
 
+import nu.fgv.archive.server.util.Uuids;
 import lombok.extern.slf4j.Slf4j;
 import nu.fgv.archive.server.audit.AuditService;
 import nu.fgv.archive.server.file.FileDtos.FileAddInput;
@@ -296,6 +297,90 @@ public class FileService {
         uploadService.release(input.uploadId());
         auditService.record("CREATE", "FILE", file.getUuid(), "Laddade upp %s till %s".formatted(file.getTitle(), version.getLabel()));
         return FileDtos.toDto(file, true, true);
+    }
+
+    /**
+     * EDITOR (an import, Spexipedia's docs/content-import.md, section 4). Adds a file received through the import API to
+     * a version, as an upload is added: checked by content, with the role, instruments, desk and transposition given by
+     * name or guessed from the file name. A file with the same content already on the version is not added again;
+     * its id is returned instead. In a dry run only the type is checked.
+     */
+    @Transactional
+    public @Nullable UUID importFile(final UUID versionId, final Path source, final String name, final @Nullable String roleName,
+                                     final @Nullable List<String> instrumentNames, final @Nullable String desk,
+                                     final FileDtos.@Nullable Transposition transposition, final @Nullable String title,
+                                     final boolean dryRun) throws IOException {
+        callerService.current().requireEditor();
+
+        final MaterialVersion version = version(versionId);
+        final String checksum = sha256(source);
+        final ArchiveFile existing = version.getFiles().stream().filter(file -> checksum.equals(file.getChecksum())).findFirst().orElse(null);
+
+        if (existing != null) {
+            return existing.getUuid();
+        }
+
+        final FileTypes.Detected detected = types.detect(source, name);
+
+        if (dryRun) {
+            return null;
+        }
+
+        final List<FileRole> roles = roleRepository.findAllByOrderByPositionAscIdAsc();
+        final List<Instrument> known = instrumentRepository.findAllByOrderByPositionAscIdAsc();
+        final FileGuesser.Guess guess = FileGuesser.guess(name, detected.extension(), version.getKind(), roles, known);
+        final FileRole role = roleName == null ? guess.role() : roles.stream()
+                .filter(candidate -> candidate.getNameSv().equalsIgnoreCase(roleName.strip()) || candidate.getNameEn().equalsIgnoreCase(roleName.strip()))
+                .findFirst().orElseThrow(() -> new BadRequestException("error.kind.unknown", roleName,
+                        String.join(", ", roles.stream().map(FileRole::getNameSv).toList())));
+        final List<Instrument> instruments = instrumentNames == null ? guess.instruments() : instrumentNames.stream()
+                .map(instrument -> known.stream()
+                        .filter(candidate -> candidate.getNameSv().equalsIgnoreCase(instrument.strip()) || candidate.getNameEn().equalsIgnoreCase(instrument.strip()))
+                        .findFirst().orElseThrow(() -> new BadRequestException("error.kind.unknown", instrument,
+                                String.join(", ", known.stream().map(Instrument::getNameSv).toList()))))
+                .distinct().toList();
+        final ArchiveFile file = new ArchiveFile();
+        final Path staged = storage.uploadFile("import-" + Uuids.v7());
+
+        Files.createDirectories(staged.getParent());
+        Files.copy(source, staged, StandardCopyOption.REPLACE_EXISTING);
+        file.setVersion(version);
+        file.setTitle(title(title, guess.title()));
+        setPart(file, role, instruments, desk != null ? desk : instrumentNames == null ? guess.desk() : null,
+                transposition != null ? transposition : instrumentNames == null ? guess.transposition() : null);
+        file.setOriginalName(title(name, name));
+        setContent(file, staged, detected);
+        file.setPosition(version.getFiles().stream().mapToInt(ArchiveFile::getPosition).max().orElse(0) + 1);
+        repository.save(file);
+        version.getFiles().add(file);
+
+        final Path target = storage.file(version.getUuid(), file);
+
+        storage.store(staged, target);
+        deleteOnRollback(target);
+        auditService.record("CREATE", "FILE", file.getUuid(), "Importerade %s till %s".formatted(file.getTitle(), version.getLabel()));
+        return file.getUuid();
+    }
+
+    /**
+     * Deletes a new file's content when the transaction rolls back, so that no content is left without a file.
+     */
+    private static void deleteOnRollback(final Path stored) {
+        if (!TransactionSynchronizationManager.isSynchronizationActive()) {
+            return;
+        }
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCompletion(final int status) {
+                if (status != STATUS_COMMITTED) {
+                    try {
+                        Files.deleteIfExists(stored);
+                    } catch (final IOException e) {
+                        log.warn("Could not delete the content of a file that was not imported: {}", e.getMessage());
+                    }
+                }
+            }
+        });
     }
 
     @Transactional

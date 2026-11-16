@@ -35,6 +35,8 @@ type Query {
     search(q: String!, parts: PartFilter, key: KeyInput): SearchResult!
     "USER. The file roles, in order."
     fileRoles: [FileRole!]!
+    "Anyone with USER. Document kinds (spec 4.1), in order; retired ones only with includeRetired."
+    documentKinds(includeRetired: Boolean! = false): [DocumentKind!]!
     "USER. The instruments, in order."
     instruments: [Instrument!]!
     "USER. Guesses a file's role and instrument from its name, as an upload does."
@@ -133,6 +135,14 @@ type Mutation {
     fileRolesReorder(ids: [ID!]!): [FileRole!]!
     "ADMIN. Only a role no file has, and not the last one."
     fileRoleDelete(id: ID!): Void
+    "ADMIN. A new document kind (no id) or changes to one."
+    documentKindSave(id: ID, input: DocumentKindInput!): DocumentKind!
+    "ADMIN. Every document kind, in the new order."
+    documentKindsReorder(ids: [ID!]!): [DocumentKind!]!
+    "ADMIN. A retired kind stays on old documents but is not offered for new ones; the last kind cannot be retired."
+    documentKindRetire(id: ID!, retired: Boolean!): DocumentKind!
+    "ADMIN. Moves the documents of a kind to another, keeps its names as aliases there, and deletes it."
+    documentKindMerge(id: ID!, intoId: ID!): DocumentKind!
     "ADMIN. Added last in its group."
     instrumentCreate(input: InstrumentInput!): Instrument!
     "ADMIN."
@@ -259,6 +269,8 @@ type Manuscript {
     spexId: ID!
     spex: Spex!
     title: String!
+    "A document kind: a manuscript, a programme, a synopsis … (spec 4.1)."
+    kind: DocumentKind!
     authors: String
     description: String
     trashed: Boolean!
@@ -274,6 +286,26 @@ input ManuscriptInput {
     title: String
     authors: String
     description: String
+    "A document kind; the first when creating without one, unchanged when updating without one."
+    kindId: ID
+}
+
+"A kind of document kept by admins (spec 4.1). The import recognises it by its names and aliases."
+type DocumentKind {
+    id: ID!
+    "In the request's language."
+    name: String!
+    nameSv: String!
+    nameEn: String!
+    aliases: [String!]!
+    position: Int!
+    retired: Boolean!
+}
+
+input DocumentKindInput {
+    nameSv: String!
+    nameEn: String!
+    aliases: [String!]
 }
 
 type Arrangement {
@@ -820,4 +852,108 @@ type SpexipediaArrangementLink {
     "The number's title."
     title: String!
     numberId: ID
+}
+
+# The import API (spec 5.6; Spexipedia's docs/content-import.md, section 4) ---------------------------------------------
+# IMPORT only. Files are uploaded first to PUT /api/import/files/{sha256} and referred to by their hash.
+
+extend type Mutation {
+    "IMPORT. Imports records: new source keys create, known ones update what they made unless an editor has changed it since. With dryRun nothing is kept. At most 500 records."
+    importBatch(input: ImportBatchInput!, dryRun: Boolean! = false): ImportResult!
+    "IMPORT. Removes what was imported under the source prefix and is still unpublished and unchanged; returns how many."
+    importForget(sourcePrefix: String!): Int!
+}
+
+input ImportBatchInput {
+    "Whether document kinds nobody knows become new kinds, instead of failing the record."
+    createMissingKinds: Boolean = false
+    documents: [ImportDocumentInput!]
+    documentVersions: [ImportVersionInput!]
+    arrangements: [ImportArrangementInput!]
+    arrangementVersions: [ImportVersionInput!]
+}
+
+input ImportFileRefInput {
+    sha256: String!
+    "The file's name, for its type and the guesses made from it."
+    name: String
+}
+
+"A document of an original spex in Spexipedia, of a document kind by name or alias."
+input ImportDocumentInput {
+    sourceKey: String!
+    spexId: ID!
+    kind: String
+    title: String
+    authors: String
+    description: String
+}
+
+"The arrangement of a number in Spexipedia; a number that has one gets the versions added to it."
+input ImportArrangementInput {
+    sourceKey: String!
+    numberId: ID!
+    description: String
+}
+
+"A version of a document or an arrangement imported with parentSourceKey. The new parent's empty Original is taken over by its first version."
+input ImportVersionInput {
+    sourceKey: String!
+    parentSourceKey: String!
+    label: String!
+    usedInSpexId: ID
+    date: String
+    notes: String
+    arranger: String
+    tempo: String
+    duration: String
+    "Instruments by name, with counts."
+    instrumentation: [ImportInstrumentationInput!]
+    recommended: Boolean
+    restricted: Boolean
+    "Files to add; files already on the version (by content) are not added again."
+    files: [ImportFileInput!]
+}
+
+input ImportInstrumentationInput {
+    instrument: String!
+    count: Int
+}
+
+"A file of a version. A file role and instruments by name; both are guessed from the file name when left out."
+input ImportFileInput {
+    file: ImportFileRefInput!
+    role: String
+    instruments: [String!]
+    desk: String
+    transposition: TranspositionInput
+    title: String
+}
+
+type ImportResult {
+    dryRun: Boolean!
+    items: [ImportItem!]!
+    created: Int!
+    updated: Int!
+    unchanged: Int!
+    kept: Int!
+    failed: Int!
+}
+
+type ImportItem {
+    kind: String!
+    sourceKey: String!
+    id: ID
+    outcome: ImportOutcome!
+    message: String
+    warnings: [String!]!
+}
+
+enum ImportOutcome {
+    CREATED
+    UPDATED
+    UNCHANGED
+    "An editor changed or removed the record since it was imported, so the import left it alone."
+    KEPT
+    FAILED
 }

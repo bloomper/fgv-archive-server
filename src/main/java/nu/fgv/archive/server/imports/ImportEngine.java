@@ -117,6 +117,7 @@ public class ImportEngine {
         private final boolean dryRun;
         private final boolean createMissingKinds;
         private final List<String> warnings = new ArrayList<>();
+        private final java.util.Set<String> planned = new java.util.HashSet<>();
 
         public Batch(final boolean dryRun, final boolean createMissingKinds) {
             this.dryRun = dryRun;
@@ -133,6 +134,14 @@ public class ImportEngine {
 
         public void warn(final String warning) {
             warnings.add(warning);
+        }
+
+        /**
+         * Whether an earlier record of this call has the source key and went well. In a dry run nothing it made is
+         * kept, so records that refer to it check what they can without it.
+         */
+        public boolean planned(final @Nullable String sourceKey) {
+            return sourceKey != null && planned.contains(sourceKey.strip());
         }
 
         List<String> drainWarnings() {
@@ -189,6 +198,7 @@ public class ImportEngine {
                 return item;
             });
 
+            batch.planned.add(sourceKey);
             return Objects.requireNonNull(result);
         } catch (final RuntimeException e) {
             if (!(e instanceof BadRequestException) && !(e instanceof ResourceNotFoundException)) {

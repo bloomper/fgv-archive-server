@@ -16,6 +16,8 @@
 
 package nu.fgv.archive.server.document;
 
+import java.util.Map;
+import nu.fgv.archive.server.material.MaterialDtos;
 import org.jspecify.annotations.Nullable;
 import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.graphql.data.method.annotation.Argument;
@@ -76,6 +78,13 @@ public class DocumentKindGraphqlApi {
     @SchemaMapping(typeName = "DocumentKind", field = "name")
     public String name(final DocumentKind kind) {
         return Locale.ENGLISH.getLanguage().equals(LocaleContextHolder.getLocale().getLanguage()) ? kind.getNameEn() : kind.getNameSv();
+    }
+
+    @org.springframework.graphql.data.method.annotation.BatchMapping(typeName = "Manuscript", field = "kind")
+    public Map<MaterialDtos.ManuscriptDto, DocumentKind> manuscriptKind(final List<MaterialDtos.ManuscriptDto> manuscripts) {
+        final Map<Long, DocumentKind> kinds = service.byKeys(manuscripts.stream().map(MaterialDtos.ManuscriptDto::kindKey).collect(java.util.stream.Collectors.toSet()));
+
+        return manuscripts.stream().collect(java.util.stream.Collectors.toMap(m -> m, m -> kinds.get(m.kindKey()), (a, _) -> a));
     }
 
     @SchemaMapping(typeName = "DocumentKind", field = "aliases")

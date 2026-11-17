@@ -171,6 +171,35 @@ public class MaterialService {
                 .map(MaterialDtos::toDto).orElse(null);
     }
 
+    /**
+     * The documents of a kind across every spex that the caller sees, by title; with {@code withoutSpex} only those
+     * of FGV's own. Without a kind: every document of FGV's own.
+     */
+    @Transactional(readOnly = true)
+    public List<ManuscriptDto> documents(final @Nullable UUID kindId, final boolean withoutSpex) {
+        final Caller caller = user();
+        final List<Manuscript> found = kindId == null ? manuscriptRepository.findBySpexIdIsNullAndTrashedAtIsNullOrderByTitleAsc()
+                : manuscriptRepository.findByKindUuidAndTrashedAtIsNullOrderByTitleAsc(kindId);
+
+        return found.stream()
+                .filter(manuscript -> !withoutSpex || manuscript.getSpexId() == null)
+                .filter(manuscript -> MaterialDtos.sees(caller, manuscript))
+                .map(MaterialDtos::toDto)
+                .toList();
+    }
+
+    /** How many documents outside the trash of each kind (by its key) the caller sees. */
+    @Transactional(readOnly = true)
+    public Map<Long, Integer> documentCounts() {
+        final Caller caller = user();
+        final Map<Long, Integer> counts = new HashMap<>();
+
+        manuscriptRepository.findByTrashedAtIsNull().stream()
+                .filter(manuscript -> MaterialDtos.sees(caller, manuscript))
+                .forEach(manuscript -> counts.merge(manuscript.getKind().getId(), 1, Integer::sum));
+        return counts;
+    }
+
     @Transactional(readOnly = true)
     public @Nullable ArrangementDto arrangement(final UUID id) {
         final Caller caller = user();
@@ -360,6 +389,7 @@ public class MaterialService {
 
         manuscriptRepository.findBySpexIdInOrderByIdAsc(new HashSet<>(familyOf.values())).stream()
                 .filter(manuscript -> manuscript.getTrashedAt() == null && MaterialDtos.sees(caller, manuscript))
+                .filter(manuscript -> manuscript.getSpexId() != null)
                 .forEach(manuscript -> manuscripts.merge(manuscript.getSpexId(), 1, Integer::sum));
 
         final Set<UUID> familySpex = spexFamily.entrySet().stream()
@@ -429,26 +459,19 @@ public class MaterialService {
         final Caller caller = callerService.current();
 
         caller.requireEditor();
-        if (input.spexId() == null) {
-            throw new BadRequestException("error.manuscript.spexRequired");
-        }
 
-        final Spex spex = spexService.require(input.spexId());
-
-        if (spex.getParentId() != null) {
-            throw new BadRequestException("error.manuscript.revival");
-        }
-
+        final @Nullable Spex spex = input.spexId() == null ? null : original(input.spexId());
         final Manuscript manuscript = new Manuscript();
 
-        manuscript.setSpexId(spex.getUuid());
+        manuscript.setSpexId(spex == null ? null : spex.getUuid());
         manuscript.setKind(documentKinds.require(input.kindId(), null));
-        manuscript.setTitle(Objects.requireNonNullElse(text(input.title(), MAX_TEXT), Objects.requireNonNullElse(spex.getTitle(), "Manus")));
+        manuscript.setTitle(Objects.requireNonNullElse(text(input.title(), MAX_TEXT),
+                spex != null && spex.getTitle() != null ? spex.getTitle() : manuscript.getKind().getNameSv()));
         manuscript.setAuthors(text(input.authors(), MAX_AUTHORS));
         manuscript.setDescription(longText(input.description()));
         manuscriptRepository.save(manuscript);
 
-        final MaterialVersion version = newVersion(MaterialKind.MANUSCRIPT, "Original", spex.getUuid());
+        final MaterialVersion version = newVersion(MaterialKind.MANUSCRIPT, "Original", spex == null ? null : spex.getUuid());
 
         version.setManuscript(manuscript);
         manuscript.getVersions().add(versionRepository.save(version));
@@ -464,6 +487,11 @@ public class MaterialService {
 
         manuscript.setTitle(Objects.requireNonNullElse(text(input.title(), MAX_TEXT), manuscript.getTitle()));
         manuscript.setKind(documentKinds.require(input.kindId(), manuscript.getKind()));
+        if (input.spexId() != null && !input.spexId().equals(manuscript.getSpexId())) {
+            // Filing a document of FGV's own under a spex, or under another; its versions' use follows
+            manuscript.setSpexId(original(input.spexId()).getUuid());
+            manuscript.getVersions().forEach(version -> version.setUsedInSpexId(manuscript.getSpexId()));
+        }
         manuscript.setAuthors(text(input.authors(), MAX_AUTHORS));
         manuscript.setDescription(longText(input.description()));
         auditService.record("UPDATE", "MANUSCRIPT", manuscript.getUuid(), "Ändrade manuset " + manuscript.getTitle());
@@ -764,7 +792,9 @@ public class MaterialService {
             throw new BadRequestException("error.version.labelRequired");
         }
         version.setLabel(label);
-        if (input.usedInSpexId() != null && !spexService.family(familySpex(version)).contains(input.usedInSpexId())) {
+        final @Nullable UUID family = input.usedInSpexId() == null ? null : familySpex(version);
+
+        if (input.usedInSpexId() != null && (family == null || !spexService.family(family).contains(input.usedInSpexId()))) {
             throw new BadRequestException("error.version.usedIn");
         }
         version.setUsedInSpexId(input.usedInSpexId());
@@ -808,10 +838,21 @@ public class MaterialService {
         }
     }
 
+    /** An original spex: a document belongs to the original, not to a revival. */
+    private Spex original(final UUID spexId) {
+        final Spex spex = spexService.require(spexId);
+
+        if (spex.getParentId() != null) {
+            throw new BadRequestException("error.manuscript.revival");
+        }
+        return spex;
+    }
+
     /**
-     * The spex whose family a version may be used in: the manuscript's spex or the arrangement's number's spex.
+     * The spex whose family a version may be used in: the manuscript's spex or the arrangement's number's spex; none
+     * for a document of FGV's own.
      */
-    private UUID familySpex(final MaterialVersion version) {
+    private @Nullable UUID familySpex(final MaterialVersion version) {
         if (version.getManuscript() != null) {
             return version.getManuscript().getSpexId();
         }

@@ -109,6 +109,19 @@ class ImportIntegrationTest extends AbstractIntegrationTest {
     }
 
     @Test
+    void aDocumentMayBelongToNoSpex() {
+        final String doc = batch(Map.of("documents", List.of(Map.of("sourceKey", "test:songbook", "kind", "Sånghäfte", "title", "Sånghäfte 2001"))), false)
+                .response()
+                .path("importBatch.created").entity(Integer.class).isEqualTo(1)
+                .path("importBatch.items[0].id").entity(String.class).get();
+
+        graphQl(EDITOR).document("query($id: ID!) { manuscript(id: $id) { spex { id } kind { nameSv } title } }").variable("id", doc).execute()
+                .path("manuscript.spex").valueIsNull()
+                .path("manuscript.kind.nameSv").entity(String.class).isEqualTo("Spexbok")
+                .path("manuscript.title").entity(String.class).isEqualTo("Sånghäfte 2001");
+    }
+
+    @Test
     void anUnknownDocumentKindFailsWithTheKnownOnes() {
         batch(Map.of("documents", List.of(Map.of("sourceKey", "test:doc", "spexId", SPEX_ID, "kind", "Affisch"))), false).response()
                 .path("importBatch.failed").entity(Integer.class).isEqualTo(1)

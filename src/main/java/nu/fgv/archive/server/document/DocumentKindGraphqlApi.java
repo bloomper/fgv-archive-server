@@ -22,6 +22,7 @@ import org.jspecify.annotations.Nullable;
 import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.graphql.data.method.annotation.Argument;
 import org.springframework.graphql.data.method.annotation.MutationMapping;
+import org.springframework.graphql.data.method.annotation.BatchMapping;
 import org.springframework.graphql.data.method.annotation.QueryMapping;
 import org.springframework.graphql.data.method.annotation.SchemaMapping;
 import org.springframework.stereotype.Controller;
@@ -40,9 +41,11 @@ import java.util.UUID;
 public class DocumentKindGraphqlApi {
 
     private final DocumentKindService service;
+    private final nu.fgv.archive.server.material.MaterialService materials;
 
-    public DocumentKindGraphqlApi(final DocumentKindService service) {
+    public DocumentKindGraphqlApi(final DocumentKindService service, final nu.fgv.archive.server.material.MaterialService materials) {
         this.service = service;
+        this.materials = materials;
     }
 
     @QueryMapping
@@ -68,6 +71,15 @@ public class DocumentKindGraphqlApi {
     @MutationMapping
     public DocumentKind documentKindMerge(@Argument final UUID id, @Argument final UUID intoId) {
         return service.merge(id, intoId);
+    }
+
+    @BatchMapping(typeName = "DocumentKind", field = "documentCount")
+    public Map<DocumentKind, Integer> documentCount(final List<DocumentKind> kinds) {
+        final Map<Long, Integer> counts = materials.documentCounts();
+        final Map<DocumentKind, Integer> result = new java.util.LinkedHashMap<>();
+
+        kinds.forEach(kind -> result.put(kind, counts.getOrDefault(kind.getId(), 0)));
+        return result;
     }
 
     @SchemaMapping(typeName = "DocumentKind", field = "id")

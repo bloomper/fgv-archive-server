@@ -89,7 +89,7 @@ public final class MaterialDtos {
                 .toList();
     }
 
-    public record ManuscriptDto(UUID id, UUID spexId, String title, @Nullable String authors,
+    public record ManuscriptDto(UUID id, @Nullable UUID spexId, String title, @Nullable String authors,
                                 @Nullable String description, boolean trashed, Instant createdAt, long kindKey) {
     }
 

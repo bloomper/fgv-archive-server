@@ -40,6 +40,12 @@ public interface ManuscriptRepository extends JpaRepository<Manuscript, Long> {
 
     List<Manuscript> findByTrashedAtIsNotNullOrderByTrashedAtDesc();
 
+    List<Manuscript> findByKindUuidAndTrashedAtIsNullOrderByTitleAsc(UUID kindUuid);
+
+    List<Manuscript> findBySpexIdIsNullAndTrashedAtIsNullOrderByTitleAsc();
+
+    List<Manuscript> findByTrashedAtIsNull();
+
     /**
      * Manuscripts whose title or authors contain the text, regardless of case.
      */

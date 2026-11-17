@@ -47,7 +47,7 @@ public final class ImportRecords {
     /**
      * A document of a kind (a manuscript, a programme, a synopsis …) of an original spex.
      */
-    public record ImportDocument(String sourceKey, UUID spexId, @Nullable String kind, @Nullable String title,
+    public record ImportDocument(String sourceKey, @Nullable UUID spexId, @Nullable String kind, @Nullable String title,
                                  @Nullable String authors, @Nullable String description) {
     }
 

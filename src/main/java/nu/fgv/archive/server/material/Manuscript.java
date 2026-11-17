@@ -59,8 +59,9 @@ public class Manuscript extends AbstractAuditable {
     @Column(name = "uuid", nullable = false, updatable = false, length = 36)
     private UUID uuid = Uuids.v7();
 
-    @Column(name = "spex_id", nullable = false, length = 36)
-    private UUID spexId;
+    /** The original spex, or none for a document of FGV's own (a songbook, a jubilee). */
+    @Column(name = "spex_id", length = 36)
+    private @Nullable UUID spexId;
 
     /** A document kind kept by admins (spec 4.1): a manuscript, a programme, a synopsis … */
     @ManyToOne(fetch = FetchType.LAZY, optional = false)

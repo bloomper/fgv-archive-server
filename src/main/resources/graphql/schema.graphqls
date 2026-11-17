@@ -18,6 +18,11 @@ type Query {
     number(id: ID!): Number
     "USER. A manuscript with a published version; any manuscript for EDITOR."
     manuscript(id: ID!): Manuscript
+    """
+    USER. The documents of a kind across every spex, by title (the menu's entry per document kind); with withoutSpex
+    only FGV's own, those of no spex. Without kindId: every document of no spex.
+    """
+    documents(kindId: ID, withoutSpex: Boolean! = false): [Manuscript!]!
     "USER. An arrangement with a published version; any arrangement for EDITOR."
     arrangement(id: ID!): Arrangement
     "USER. A published version outside the trash; any version for EDITOR."
@@ -266,8 +271,9 @@ type Number {
 
 type Manuscript {
     id: ID!
-    spexId: ID!
-    spex: Spex!
+    "The original spex; none for a document of FGV's own, such as a songbook or a jubilee."
+    spexId: ID
+    spex: Spex
     title: String!
     "A document kind: a manuscript, a programme, a synopsis … (spec 4.1)."
     kind: DocumentKind!
@@ -280,9 +286,9 @@ type Manuscript {
 }
 
 input ManuscriptInput {
-    "Only when creating: an original spex."
+    "An original spex, or none for a document of FGV's own. When updating: files the document under this spex; left out, unchanged."
     spexId: ID
-    "Defaults to the spex' title."
+    "Defaults to the spex' title, or the kind's name."
     title: String
     authors: String
     description: String
@@ -300,6 +306,8 @@ type DocumentKind {
     aliases: [String!]!
     position: Int!
     retired: Boolean!
+    "How many documents of the kind the caller sees, outside the trash."
+    documentCount: Int!
 }
 
 input DocumentKindInput {
@@ -882,7 +890,8 @@ input ImportFileRefInput {
 "A document of an original spex in Spexipedia, of a document kind by name or alias."
 input ImportDocumentInput {
     sourceKey: String!
-    spexId: ID!
+    "The original spex; left out for a document of FGV's own."
+    spexId: ID
     kind: String
     title: String
     authors: String

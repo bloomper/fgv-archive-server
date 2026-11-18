@@ -122,7 +122,7 @@ public abstract class AbstractIntegrationTest {
             .withTmpFs(Map.of("/var/lib/mysql", "rw"))
             .withCommand("mysqld", "--innodb-flush-log-at-trx-commit=0", "--innodb-doublewrite=0", "--skip-log-bin", "--performance-schema=OFF");
     private static final KeycloakContainer KEYCLOAK = new KeycloakContainer("quay.io/keycloak/keycloak:26.8").withRealmImportFile("/realm/fgv.json");
-    private static final List<String> TABLES = List.of("audit_entry", "download_log", "access_request_file", "access_request",
+    private static final List<String> TABLES = List.of("import_key", "audit_entry", "download_log", "access_request_file", "access_request",
             "share_link_instrument", "share_link_file", "share_link_version", "share_link", "file_page", "file_instrument",
             "archive_file", "instrumentation_entry", "version_modulation", "material_version", "arrangement", "manuscript", "number",
             "spex", "spex_character", "spexipedia_task", "spexipedia_task_category", "spexipedia_category", "upload_session", "app_user",

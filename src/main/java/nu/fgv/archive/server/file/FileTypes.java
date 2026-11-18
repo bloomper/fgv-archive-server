@@ -31,7 +31,8 @@ import java.util.Set;
 
 /**
  * The types the archive accepts, checked by content with Apache Tika, never by name alone (product spec 4.3): PDF,
- * documents (DOCX, ODT, RTF, TXT), notation (MusicXML, MuseScore, Sibelius, Finale, Dorico), MIDI and images (JPEG, PNG,
+ * documents (DOC, DOCX, ODT, RTF, TXT, TeX), notation (MusicXML, MuseScore, Sibelius, Finale, Dorico, and by configuration
+ * NoteWorthy, Guitar Pro, Capella), MIDI and images (JPEG, PNG,
  * TIFF). Notation formats that Tika does not know are accepted by their extension only when their content is a zip
  * archive, XML or unknown binary, never when it is something Tika recognises as another type.
  *
@@ -46,6 +47,8 @@ public class FileTypes {
     public static final String DOCX = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
     public static final String ODT = "application/vnd.oasis.opendocument.text";
     public static final String RTF = "application/rtf";
+    public static final String DOC = "application/msword";
+    public static final String TEX = "application/x-tex";
     public static final String TEXT = "text/plain";
     public static final String MUSICXML = "application/vnd.recordare.musicxml+xml";
     public static final String MIDI = "audio/midi";
@@ -62,6 +65,9 @@ public class FileTypes {
             Map.entry("application/x-tika-ooxml", List.of("docx")),
             Map.entry(ODT, List.of("odt")),
             Map.entry(RTF, List.of("rtf")),
+            Map.entry(DOC, List.of("doc")),
+            Map.entry("application/x-tika-msoffice", List.of("doc")),
+            Map.entry(TEX, List.of("tex")),
             Map.entry(TEXT, List.of("txt")),
             Map.entry(MUSICXML, List.of("musicxml", "xml")),
             Map.entry("application/vnd.recordare.musicxml", List.of("mxl")),
@@ -79,15 +85,34 @@ public class FileTypes {
             OCTET_STREAM, Set.of("sib", "mus", "musx", "dorico")
     );
     private static final Map<String, String> CANONICAL = Map.of(
-            "application/x-tika-ooxml", DOCX
+            "application/x-tika-ooxml", DOCX,
+            "application/x-tika-msoffice", DOC
     );
-    private static final Set<String> TEXT_TYPES = Set.of(DOCX, ODT, RTF, TEXT, MUSICXML, "application/xml");
+    private static final Set<String> TEXT_TYPES = Set.of(DOCX, DOC, ODT, RTF, TEXT, TEX, MUSICXML, "application/xml");
     private static final Set<String> IMAGE_TYPES = Set.of(JPEG, PNG, TIFF);
     private static final Set<String> INLINE_TYPES = Set.of(PDF, JPEG, PNG, TIFF, "image/webp");
     /** Binary formats a browser does not render, served with their own type. */
-    private static final Set<String> OPAQUE_TYPES = Set.of(DOCX, ODT, MIDI, "application/zip");
+    private static final Set<String> OPAQUE_TYPES = Set.of(DOCX, DOC, ODT, MIDI, "application/zip");
 
     private final Tika tika = new Tika();
+    /**
+     * More extensions accepted for content Tika cannot tell from unknown binary or plain text, from configuration
+     * ({@code archive.files.binary-extensions}, {@code archive.files.text-extensions}), so that a format found in old
+     * material can be added without a release: NoteWorthy Composer, Guitar Pro, Capella by default.
+     */
+    private final Set<String> binaryExtensions;
+    private final Set<String> textExtensions;
+
+    @org.springframework.beans.factory.annotation.Autowired
+    public FileTypes(@org.springframework.beans.factory.annotation.Value("${archive.files.binary-extensions:nwc,gp,gp3,gp4,gp5,gpx,cap,capx}") final List<String> binaryExtensions,
+                     @org.springframework.beans.factory.annotation.Value("${archive.files.text-extensions:tex,ly,abc}") final List<String> textExtensions) {
+        this.binaryExtensions = Set.copyOf(binaryExtensions.stream().map(String::strip).map(String::toLowerCase).toList());
+        this.textExtensions = Set.copyOf(textExtensions.stream().map(String::strip).map(String::toLowerCase).toList());
+    }
+
+    public FileTypes() {
+        this(List.of("nwc", "gp", "gp3", "gp4", "gp5", "gpx", "cap", "capx"), List.of("tex", "ly", "abc"));
+    }
 
     public static String extensionOf(final String fileName) {
         final int dot = fileName.lastIndexOf('.');
@@ -136,6 +161,14 @@ public class FileTypes {
         }
 
         final String extension = extensionOf(name);
+
+        if (OCTET_STREAM.equals(detected) && binaryExtensions.contains(extension)) {
+            return new Detected(detected, extension);
+        }
+        if (TEXT.equals(detected) && textExtensions.contains(extension)) {
+            return new Detected(TEXT, extension);
+        }
+
         final List<String> known = KNOWN.get(detected);
 
         if (known != null) {

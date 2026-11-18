@@ -126,14 +126,14 @@ public class McpToolSupport {
         final Map<UUID, NumberDto> numbers = numberService.byIds(arrangements.values().stream().map(ArrangementDto::numberId).distinct().toList());
         final Set<UUID> spexIds = new HashSet<>();
 
-        manuscripts.values().forEach(manuscript -> spexIds.add(manuscript.spexId()));
+        manuscripts.values().stream().map(ManuscriptDto::spexId).filter(Objects::nonNull).forEach(spexIds::add);
         numbers.values().forEach(number -> spexIds.add(number.spexId()));
 
         final Map<UUID, SpexDto> spex = spexService.byIds(spexIds);
         final Map<UUID, MaterialRef> result = new HashMap<>();
 
         manuscripts.values().forEach(manuscript -> result.put(manuscript.id(), new MaterialRef(manuscript.id(), MaterialKind.MANUSCRIPT,
-                manuscript.title(), spexRefOrNull(spex.get(manuscript.spexId())), null)));
+                manuscript.title(), spexRefOrNull(manuscript.spexId() == null ? null : spex.get(manuscript.spexId())), null)));
         arrangements.values().forEach(arrangement -> {
             final NumberDto number = numbers.get(arrangement.numberId());
 

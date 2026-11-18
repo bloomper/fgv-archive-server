@@ -122,6 +122,11 @@ public class MaterialGraphqlApi {
     }
 
     @QueryMapping
+    public List<ManuscriptDto> documents(@Argument final @Nullable UUID kindId, @Argument final boolean withoutSpex) {
+        return materialService.documents(kindId, withoutSpex);
+    }
+
+    @QueryMapping
     public @Nullable ArrangementDto arrangement(@Argument final UUID id) {
         return materialService.arrangement(id);
     }

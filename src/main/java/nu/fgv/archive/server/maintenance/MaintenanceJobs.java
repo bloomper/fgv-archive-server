@@ -16,6 +16,7 @@
 
 package nu.fgv.archive.server.maintenance;
 
+import nu.fgv.archive.server.imports.ImportFileStore;
 import lombok.extern.slf4j.Slf4j;
 import nu.fgv.archive.server.processing.FileProcessor;
 import nu.fgv.archive.server.spex.SpexipediaSync;
@@ -49,10 +50,13 @@ public class MaintenanceJobs {
 
     @Autowired
     public MaintenanceJobs(final SpexipediaSync spexipediaSync, final UploadService uploadService, final FileProcessor fileProcessor,
-                           final RetentionService retentionService) {
+                           final RetentionService retentionService, final ImportFileStore importFiles) {
         this(Map.of(
                 MaintenanceJob.SPEX_REFRESH, () -> spexipediaSync.pull(true),
-                MaintenanceJob.UPLOAD_CLEANUP, uploadService::cleanUp,
+                MaintenanceJob.UPLOAD_CLEANUP, () -> {
+                    uploadService.cleanUp();
+                    importFiles.cleanUp();
+                },
                 MaintenanceJob.FILE_BACKFILL, fileProcessor::backfill,
                 MaintenanceJob.RETENTION, retentionService::run
         ));

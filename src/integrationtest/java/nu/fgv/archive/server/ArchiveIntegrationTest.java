@@ -573,6 +573,37 @@ class ArchiveIntegrationTest extends AbstractIntegrationTest {
     }
 
     @Test
+    void aDocumentOfNoSpexIsListedUnderItsKindAndCanBeFiledUnderASpexLater() {
+        final String kind = graphQl(EDITOR).document("{ documentKinds { id nameSv } }").execute()
+                .path("documentKinds[?(@.nameSv == 'Spexbok')].id").entityList(String.class).get().getFirst();
+        final String document = graphQl(EDITOR)
+                .document("mutation($kind: ID!) { manuscriptCreate(input: {kindId: $kind}) { id title spexId versions { id usedInSpexId } } }")
+                .variable("kind", kind)
+                .execute()
+                .path("manuscriptCreate.title").entity(String.class).isEqualTo("Spexbok")
+                .path("manuscriptCreate.spexId").valueIsNull()
+                .path("manuscriptCreate.versions[0].usedInSpexId").valueIsNull()
+                .path("manuscriptCreate.id").entity(String.class).get();
+
+        graphQl(EDITOR).document("query($kind: ID!) { documents(kindId: $kind) { id spex { id } } }").variable("kind", kind).execute()
+                .path("documents[*].id").entityList(String.class).containsExactly(document);
+        graphQl(EDITOR).document("{ documents { id } }").execute()
+                .path("documents[*].id").entityList(String.class).containsExactly(document);
+        // A user sees it only once a version is published
+        graphQl(VIEWER).document("query($kind: ID!) { documents(kindId: $kind) { id } }").variable("kind", kind).execute()
+                .path("documents").entityList(Object.class).hasSize(0);
+        graphQl(EDITOR).document("{ documentKinds { nameSv documentCount } }").execute()
+                .path("documentKinds[?(@.nameSv == 'Spexbok')].documentCount").entityList(Integer.class).containsExactly(1);
+
+        graphQl(EDITOR).document("mutation($id: ID!, $spex: ID!) { manuscriptUpdate(id: $id, input: {spexId: $spex}) { spexId versions { usedInSpexId } } }")
+                .variable("id", document).variable("spex", SPEX_ID).execute()
+                .path("manuscriptUpdate.spexId").entity(String.class).isEqualTo(SPEX_ID)
+                .path("manuscriptUpdate.versions[0].usedInSpexId").entity(String.class).isEqualTo(SPEX_ID);
+        graphQl(EDITOR).document("query($kind: ID!) { documents(kindId: $kind, withoutSpex: true) { id } }").variable("kind", kind).execute()
+                .path("documents").entityList(Object.class).hasSize(0);
+    }
+
+    @Test
     void usersCannotEdit() {
         expectError(graphQl(VIEWER)
                 .document("mutation($spex: ID!) { manuscriptCreate(input: {spexId: $spex}) { id } }")

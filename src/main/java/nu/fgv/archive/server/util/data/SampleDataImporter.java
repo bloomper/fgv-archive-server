@@ -16,6 +16,7 @@
 
 package nu.fgv.archive.server.util.data;
 
+import nu.fgv.archive.server.document.DocumentKindRepository;
 import lombok.extern.slf4j.Slf4j;
 import nu.fgv.archive.server.access.AccessRequest;
 import nu.fgv.archive.server.access.AccessRequestRepository;
@@ -160,6 +161,7 @@ public class SampleDataImporter {
     private final AppUserRepository userRepository;
     private final SpexNumberRepository numberRepository;
     private final ManuscriptRepository manuscriptRepository;
+    private final DocumentKindRepository documentKindRepository;
     private final ArrangementRepository arrangementRepository;
     private final MaterialVersionRepository versionRepository;
     private final ArchiveFileRepository fileRepository;
@@ -176,7 +178,7 @@ public class SampleDataImporter {
                               final TransactionTemplate transactionTemplate, final SpexipediaSync spexipediaSync,
                               final SpexService spexService,
                               final FileStorage storage, final FileTypes types, final AppUserRepository userRepository,
-                              final SpexNumberRepository numberRepository, final ManuscriptRepository manuscriptRepository,
+                              final SpexNumberRepository numberRepository, final ManuscriptRepository manuscriptRepository, final DocumentKindRepository documentKindRepository,
                               final ArrangementRepository arrangementRepository, final MaterialVersionRepository versionRepository,
                               final ArchiveFileRepository fileRepository, final FileRoleRepository roleRepository,
                               final InstrumentRepository instrumentRepository, final ShareLinkRepository shareLinkRepository,
@@ -193,6 +195,7 @@ public class SampleDataImporter {
         this.userRepository = userRepository;
         this.numberRepository = numberRepository;
         this.manuscriptRepository = manuscriptRepository;
+        this.documentKindRepository = documentKindRepository;
         this.arrangementRepository = arrangementRepository;
         this.versionRepository = versionRepository;
         this.fileRepository = fileRepository;
@@ -381,6 +384,8 @@ public class SampleDataImporter {
 
         manuscript.setUuid(id(key));
         manuscript.setSpexId(spex.id());
+        // The default document kind, a manuscript (spec 4.1)
+        manuscript.setKind(documentKindRepository.findAllByOrderByPositionAscIdAsc().getFirst());
         manuscript.setTitle(title);
         manuscript.setAuthors(LYRICISTS.get(title.length() % LYRICISTS.size()) + " och " + LYRICISTS.get((title.length() + 1) % LYRICISTS.size()));
         manuscript.setDescription("Exempeldata: ett genererat manus för " + title + ".");

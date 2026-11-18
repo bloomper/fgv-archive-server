@@ -16,6 +16,7 @@
 
 package nu.fgv.archive.server.material;
 
+import nu.fgv.archive.server.document.DocumentKindService;
 import nu.fgv.archive.server.audit.AuditService;
 import nu.fgv.archive.server.file.FileService;
 import nu.fgv.archive.server.file.Instrument;
@@ -90,6 +91,7 @@ public class MaterialService {
     private final MaterialVersionRepository versionRepository;
     private final SpexNumberRepository numberRepository;
     private final InstrumentRepository instrumentRepository;
+    private final DocumentKindService documentKinds;
     private final SpexService spexService;
     private final FileService fileService;
     private final SettingsService settingsService;
@@ -100,7 +102,8 @@ public class MaterialService {
     @SuppressWarnings("java:S107")
     public MaterialService(final ManuscriptRepository manuscriptRepository, final ArrangementRepository arrangementRepository,
                            final MaterialVersionRepository versionRepository, final SpexNumberRepository numberRepository,
-                           final InstrumentRepository instrumentRepository, final SpexService spexService,
+                           final InstrumentRepository instrumentRepository, final DocumentKindService documentKinds,
+                           final SpexService spexService,
                            final FileService fileService, final SettingsService settingsService,
                            final CallerService callerService, final AuditService auditService, final Clock clock) {
         this.manuscriptRepository = manuscriptRepository;
@@ -108,6 +111,7 @@ public class MaterialService {
         this.versionRepository = versionRepository;
         this.numberRepository = numberRepository;
         this.instrumentRepository = instrumentRepository;
+        this.documentKinds = documentKinds;
         this.spexService = spexService;
         this.fileService = fileService;
         this.settingsService = settingsService;
@@ -165,6 +169,35 @@ public class MaterialService {
 
         return manuscriptRepository.findByUuid(id).filter(manuscript -> MaterialDtos.sees(caller, manuscript))
                 .map(MaterialDtos::toDto).orElse(null);
+    }
+
+    /**
+     * The documents of a kind across every spex that the caller sees, by title; with {@code withoutSpex} only those
+     * of FGV's own. Without a kind: every document of FGV's own.
+     */
+    @Transactional(readOnly = true)
+    public List<ManuscriptDto> documents(final @Nullable UUID kindId, final boolean withoutSpex) {
+        final Caller caller = user();
+        final List<Manuscript> found = kindId == null ? manuscriptRepository.findBySpexIdIsNullAndTrashedAtIsNullOrderByTitleAsc()
+                : manuscriptRepository.findByKindUuidAndTrashedAtIsNullOrderByTitleAsc(kindId);
+
+        return found.stream()
+                .filter(manuscript -> !withoutSpex || manuscript.getSpexId() == null)
+                .filter(manuscript -> MaterialDtos.sees(caller, manuscript))
+                .map(MaterialDtos::toDto)
+                .toList();
+    }
+
+    /** How many documents outside the trash of each kind (by its key) the caller sees. */
+    @Transactional(readOnly = true)
+    public Map<Long, Integer> documentCounts() {
+        final Caller caller = user();
+        final Map<Long, Integer> counts = new HashMap<>();
+
+        manuscriptRepository.findByTrashedAtIsNull().stream()
+                .filter(manuscript -> MaterialDtos.sees(caller, manuscript))
+                .forEach(manuscript -> counts.merge(manuscript.getKind().getId(), 1, Integer::sum));
+        return counts;
     }
 
     @Transactional(readOnly = true)
@@ -356,6 +389,7 @@ public class MaterialService {
 
         manuscriptRepository.findBySpexIdInOrderByIdAsc(new HashSet<>(familyOf.values())).stream()
                 .filter(manuscript -> manuscript.getTrashedAt() == null && MaterialDtos.sees(caller, manuscript))
+                .filter(manuscript -> manuscript.getSpexId() != null)
                 .forEach(manuscript -> manuscripts.merge(manuscript.getSpexId(), 1, Integer::sum));
 
         final Set<UUID> familySpex = spexFamily.entrySet().stream()
@@ -425,25 +459,19 @@ public class MaterialService {
         final Caller caller = callerService.current();
 
         caller.requireEditor();
-        if (input.spexId() == null) {
-            throw new BadRequestException("error.manuscript.spexRequired");
-        }
 
-        final Spex spex = spexService.require(input.spexId());
-
-        if (spex.getParentId() != null) {
-            throw new BadRequestException("error.manuscript.revival");
-        }
-
+        final @Nullable Spex spex = input.spexId() == null ? null : original(input.spexId());
         final Manuscript manuscript = new Manuscript();
 
-        manuscript.setSpexId(spex.getUuid());
-        manuscript.setTitle(Objects.requireNonNullElse(text(input.title(), MAX_TEXT), Objects.requireNonNullElse(spex.getTitle(), "Manus")));
+        manuscript.setSpexId(spex == null ? null : spex.getUuid());
+        manuscript.setKind(documentKinds.require(input.kindId(), null));
+        manuscript.setTitle(Objects.requireNonNullElse(text(input.title(), MAX_TEXT),
+                spex != null && spex.getTitle() != null ? spex.getTitle() : manuscript.getKind().getNameSv()));
         manuscript.setAuthors(text(input.authors(), MAX_AUTHORS));
         manuscript.setDescription(longText(input.description()));
         manuscriptRepository.save(manuscript);
 
-        final MaterialVersion version = newVersion(MaterialKind.MANUSCRIPT, "Original", spex.getUuid());
+        final MaterialVersion version = newVersion(MaterialKind.MANUSCRIPT, "Original", spex == null ? null : spex.getUuid());
 
         version.setManuscript(manuscript);
         manuscript.getVersions().add(versionRepository.save(version));
@@ -458,6 +486,12 @@ public class MaterialService {
         final Manuscript manuscript = manuscriptEntity(id);
 
         manuscript.setTitle(Objects.requireNonNullElse(text(input.title(), MAX_TEXT), manuscript.getTitle()));
+        manuscript.setKind(documentKinds.require(input.kindId(), manuscript.getKind()));
+        if (input.spexId() != null && !input.spexId().equals(manuscript.getSpexId())) {
+            // Filing a document of FGV's own under a spex, or under another; its versions' use follows
+            manuscript.setSpexId(original(input.spexId()).getUuid());
+            manuscript.getVersions().forEach(version -> version.setUsedInSpexId(manuscript.getSpexId()));
+        }
         manuscript.setAuthors(text(input.authors(), MAX_AUTHORS));
         manuscript.setDescription(longText(input.description()));
         auditService.record("UPDATE", "MANUSCRIPT", manuscript.getUuid(), "Ändrade manuset " + manuscript.getTitle());
@@ -758,7 +792,9 @@ public class MaterialService {
             throw new BadRequestException("error.version.labelRequired");
         }
         version.setLabel(label);
-        if (input.usedInSpexId() != null && !spexService.family(familySpex(version)).contains(input.usedInSpexId())) {
+        final @Nullable UUID family = input.usedInSpexId() == null ? null : familySpex(version);
+
+        if (input.usedInSpexId() != null && (family == null || !spexService.family(family).contains(input.usedInSpexId()))) {
             throw new BadRequestException("error.version.usedIn");
         }
         version.setUsedInSpexId(input.usedInSpexId());
@@ -802,10 +838,21 @@ public class MaterialService {
         }
     }
 
+    /** An original spex: a document belongs to the original, not to a revival. */
+    private Spex original(final UUID spexId) {
+        final Spex spex = spexService.require(spexId);
+
+        if (spex.getParentId() != null) {
+            throw new BadRequestException("error.manuscript.revival");
+        }
+        return spex;
+    }
+
     /**
-     * The spex whose family a version may be used in: the manuscript's spex or the arrangement's number's spex.
+     * The spex whose family a version may be used in: the manuscript's spex or the arrangement's number's spex; none
+     * for a document of FGV's own.
      */
-    private UUID familySpex(final MaterialVersion version) {
+    private @Nullable UUID familySpex(final MaterialVersion version) {
         if (version.getManuscript() != null) {
             return version.getManuscript().getSpexId();
         }
@@ -829,6 +876,81 @@ public class MaterialService {
 
     private Arrangement arrangementEntity(final UUID id) {
         return arrangementRepository.findByUuid(id).orElseThrow(() -> new ResourceNotFoundException("error.arrangement.notFound", id));
+    }
+
+    // ------------------------------------------------------------------------------------------- the import API
+
+    /** The optimistic-lock version of a document, an arrangement or a version, or null when it is gone. */
+    @Transactional(readOnly = true)
+    public @Nullable Long recordVersion(final UUID id) {
+        return manuscriptRepository.findByUuid(id).map(Manuscript::getLockVersion)
+                .or(() -> arrangementRepository.findByUuid(id).map(Arrangement::getLockVersion))
+                .or(() -> versionRepository.findByUuid(id).map(MaterialVersion::getLockVersion))
+                .orElse(null);
+    }
+
+    /**
+     * The arrangement of a number, if it has one: an import adds to it instead of failing on a second one.
+     */
+    @Transactional(readOnly = true)
+    public @Nullable UUID arrangementOfNumber(final UUID numberId) {
+        return arrangementRepository.findByNumberId(numberId).map(Arrangement::getUuid).orElse(null);
+    }
+
+    /**
+     * The version a new document or arrangement starts with ("Original", without files), when it is still its only
+     * one: the import's first version takes it over instead of adding a second.
+     */
+    @Transactional(readOnly = true)
+    public @Nullable UUID untouchedOriginal(final UUID parentId) {
+        final List<MaterialVersion> versions = manuscriptRepository.findByUuid(parentId).map(Manuscript::getVersions)
+                .or(() -> arrangementRepository.findByUuid(parentId).map(Arrangement::getVersions))
+                .orElse(List.of());
+
+        return versions.size() == 1 && versions.getFirst().getFiles().isEmpty() && !versions.getFirst().isPublished()
+                ? versions.getFirst().getUuid() : null;
+    }
+
+    /**
+     * EDITOR (an import's forget). Deletes an imported document, arrangement or version that nobody has published,
+     * with its files; returns whether it was deleted.
+     */
+    @Transactional
+    public boolean forget(final UUID id) {
+        callerService.current().requireEditor();
+
+        final Manuscript manuscript = manuscriptRepository.findByUuid(id).orElse(null);
+
+        if (manuscript != null) {
+            if (manuscript.getVersions().stream().anyMatch(MaterialVersion::isPublished)) {
+                return false;
+            }
+            List.copyOf(manuscript.getVersions()).forEach(this::deleteVersionEntity);
+            manuscriptRepository.delete(manuscript);
+            auditService.record("DELETE", "MANUSCRIPT", id, "Tog bort det importerade dokumentet " + manuscript.getTitle());
+            return true;
+        }
+
+        final Arrangement arrangement = arrangementRepository.findByUuid(id).orElse(null);
+
+        if (arrangement != null) {
+            if (arrangement.getVersions().stream().anyMatch(MaterialVersion::isPublished)) {
+                return false;
+            }
+            List.copyOf(arrangement.getVersions()).forEach(this::deleteVersionEntity);
+            arrangementRepository.delete(arrangement);
+            auditService.record("DELETE", "ARRANGEMENT", id, "Tog bort det importerade arrangemanget för " + numberTitle(arrangement));
+            return true;
+        }
+
+        final MaterialVersion version = versionRepository.findByUuid(id).orElse(null);
+
+        if (version == null || version.isPublished()) {
+            return false;
+        }
+        deleteVersionEntity(version);
+        auditService.record("DELETE", "VERSION", id, "Tog bort den importerade versionen " + version.getLabel());
+        return true;
     }
 
     private MaterialVersion versionEntity(final UUID id) {

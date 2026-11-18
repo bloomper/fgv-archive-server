@@ -186,6 +186,7 @@ The import waits up to 5 minutes for Spexipedia.
 The import records them by their fixed ids and never asks Keycloak, so it needs no admin client and does not wait for Spexregister.
 
 The import generates, for about 10 spex (about 150 with ``API_SAMPLE_DATA_SIZE=large``), numbers (a revival with numbers of its own every other time), manuscripts of 20–80 pages with searchable Swedish text (the word ``kungamantel`` occurs on every page but the first), revival rewrites, drafts, a scanned page without text, DOCX sources, and arrangements for all numbers but the last, with original and revival versions in several keys (one with a modulation, one transposed to D), instrumentation, a score and full sets of parts: a trumpet part in B♭ and the same in C, a part for alto or tenor saxophone, a horn part in F, MusicXML and MIDI files.
+Every other document kind (press cuttings, handover notes, tours and the rest, read from the kinds table) has documents for two of those spex (six with ``large``), and every other kind also an FGV document without a spex, as the content migration brings them in.
 There are restricted, open and unpublished versions, items in the trash, an open and a handled access request, download logs and audit log entries.
 The files are queued for the worker, which reads them within a minute or so.
 ``SampleFiles.disallowed()`` makes a file of a type the archive refuses, for testing rejection.

@@ -16,13 +16,14 @@
 
 package nu.fgv.archive.server.util.data;
 
-import nu.fgv.archive.server.document.DocumentKindRepository;
 import lombok.extern.slf4j.Slf4j;
 import nu.fgv.archive.server.access.AccessRequest;
 import nu.fgv.archive.server.access.AccessRequestRepository;
 import nu.fgv.archive.server.audit.AuditEntry;
 import nu.fgv.archive.server.audit.AuditEntryRepository;
 import nu.fgv.archive.server.config.ArchiveProperties;
+import nu.fgv.archive.server.document.DocumentKind;
+import nu.fgv.archive.server.document.DocumentKindRepository;
 import nu.fgv.archive.server.download.DownloadLog;
 import nu.fgv.archive.server.download.DownloadLogRepository;
 import nu.fgv.archive.server.file.ArchiveFile;
@@ -270,6 +271,7 @@ public class SampleDataImporter {
 
                 transactionTemplate.executeWithoutResult(_ -> createMaterial(index, spex, large, shared, work));
             }
+            transactionTemplate.executeWithoutResult(_ -> createDocuments(originals.subList(0, withMaterial), large, work));
             transactionTemplate.executeWithoutResult(_ -> createShareLinksAndLogs(users));
             transactionTemplate.executeWithoutResult(_ -> createAudit(users.get(EDITOR)));
         } finally {
@@ -555,6 +557,60 @@ public class SampleDataImporter {
         Files.createDirectories(target.getParent());
         Files.copy(source, target);
         return file;
+    }
+
+    // ---------------------------------------------------------------------------------------------------- documents
+
+    /**
+     * Documents of every kind but the first (the manuscripts above), as the content migration brings them in from the
+     * committees' folders: a few spex' press cuttings, handover notes, tours and so on, and FGV's own documents without a
+     * spex for every other kind (spec 4.1). The kinds are read from the table, so a kind an admin adds gets documents
+     * too.
+     */
+    private void createDocuments(final List<SpexDto> spex, final boolean large, final Path work) {
+        final List<DocumentKind> kinds = documentKindRepository.findAllByOrderByPositionAscIdAsc().stream()
+                .filter(kind -> !kind.isRetired()).toList();
+
+        try {
+            for (int k = 1; k < kinds.size(); k++) {
+                final DocumentKind kind = kinds.get(k);
+                final int perKind = large ? 6 : 2;
+
+                for (int j = 0; j < Math.min(perKind, spex.size()); j++) {
+                    final SpexDto of = spex.get((k + j * 3) % spex.size());
+                    final String title = "%s – %s".formatted(kind.getNameSv(), Objects.requireNonNullElse(of.title(), "Spexet"));
+
+                    document(kind, of.id(), title, "document-%d-%d".formatted(k, j), of.year(), work);
+                }
+                if (k % 2 == 1) {
+                    final int year = 2010 + k;
+
+                    document(kind, null, "%s – FGV %d".formatted(kind.getNameSv(), year), "document-own-" + k, year, work);
+                }
+            }
+        } catch (final IOException e) {
+            throw new UncheckedIOException(e);
+        }
+    }
+
+    private void document(final DocumentKind kind, final @Nullable UUID spexId, final String title, final String key,
+                          final @Nullable Integer year, final Path work) throws IOException {
+        final Manuscript document = new Manuscript();
+
+        document.setUuid(id(key));
+        document.setSpexId(spexId);
+        document.setKind(kind);
+        document.setTitle(title);
+        document.setDescription("Exempeldata: " + (spexId == null ? "ett av FGV:s egna dokument." : "ett dokument från kommittéernas mappar."));
+        manuscriptRepository.save(document);
+
+        final MaterialVersion version = version(MaterialKind.MANUSCRIPT, document, null, "Original", spexId, "document-" + key, true, false);
+        final Path pdf = work.resolve(title.replace('/', '-') + ".pdf");
+
+        version.setRecommended(true);
+        version.setDate(year == null ? null : LocalDate.of(year, 3, 1));
+        SampleFiles.manuscript(pdf, title, version.getLabel(), 2);
+        addFile(version, pdf, title, FileRole.OTHER, List.of(), 1);
     }
 
     // ------------------------------------------------------------------------------------------- links and logs

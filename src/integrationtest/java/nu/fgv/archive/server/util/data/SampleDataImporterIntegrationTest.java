@@ -84,6 +84,10 @@ class SampleDataImporterIntegrationTest extends AbstractIntegrationTest {
                 "00000000-0000-4000-8000-000000000003", "00000000-0000-4000-8000-000000000005");
         assertThat(jdbcClient.sql("SELECT COUNT(*) FROM manuscript").query(Long.class).single()).isPositive();
         assertThat(jdbcClient.sql("SELECT COUNT(*) FROM arrangement").query(Long.class).single()).isPositive();
+        // Every document kind has documents, and some are FGV's own, without a spex
+        assertThat(jdbcClient.sql("SELECT COUNT(*) FROM document_kind k WHERE NOT EXISTS (SELECT 1 FROM manuscript m WHERE m.kind_id = k.id)")
+                .query(Long.class).single()).isZero();
+        assertThat(jdbcClient.sql("SELECT COUNT(*) FROM manuscript WHERE spex_id IS NULL").query(Long.class).single()).isPositive();
         assertThat(jdbcClient.sql("SELECT COUNT(DISTINCT transposition_pitch) FROM archive_file WHERE transposition_pitch IS NOT NULL")
                 .query(Long.class).single()).isGreaterThanOrEqualTo(3);
         assertThat(jdbcClient.sql("SELECT COUNT(*) FROM file_instrument GROUP BY file_id ORDER BY COUNT(*) DESC LIMIT 1")

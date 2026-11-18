@@ -290,6 +290,11 @@ public class SampleDataImporter {
                 if (spexService.all().isEmpty()) {
                     throw new IllegalStateException("Spexipedia has no spex; import its sample data first");
                 }
+                // The spex are there as soon as Spexipedia starts (a migration seeds them), its sample numbers only once
+                // its sample data is made
+                if (numberRepository.count() == 0) {
+                    throw new SpexipediaClient.SpexipediaCallException("Spexipedia's sample data is not made yet: no numbers", null);
+                }
                 return;
             } catch (final SpexipediaClient.SpexipediaCallException e) {
                 if (attempt == SPEXIPEDIA_ATTEMPTS) {

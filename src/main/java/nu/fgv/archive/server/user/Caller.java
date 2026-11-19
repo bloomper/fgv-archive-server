@@ -65,6 +65,13 @@ public record Caller(String subject, String username, @Nullable String displayNa
         return roles.contains(Role.LINKS);
     }
 
+    /**
+     * Spexify's service account, which reads open, published arrangement versions and their files.
+     */
+    public boolean isSpexifyService() {
+        return roles.contains(Role.SPEXIFY);
+    }
+
     public boolean isNotifier() {
         return roles.contains(Role.NOTIFY);
     }

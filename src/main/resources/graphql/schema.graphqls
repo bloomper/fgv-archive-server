@@ -71,6 +71,8 @@ type Query {
     maintenanceJobs: [MaintenanceJobStatus!]!
     "LINKS. For Spexipedia: the manuscripts of the spex and the arrangements of the numbers that have a published version. At most 500 ids each."
     spexipediaLinks(spexIds: [ID!]!, numberIds: [ID!]!): SpexipediaLinks!
+    "SPEXIFY. For Spexify: the arrangements of the numbers with their open versions (published, outside the trash, not restricted) and those versions' files; arrangements without one are left out. At most 500 ids."
+    spexifySheetMusic(numberIds: [ID!]!): [SpexifySheetMusic!]!
 }
 
 type Mutation {
@@ -860,6 +862,47 @@ type SpexipediaArrangementLink {
     "The number's title."
     title: String!
     numberId: ID
+}
+
+"An arrangement as Spexify sees it: only its open versions. The files open through /api/files/{id} with SPEXIFY."
+type SpexifySheetMusic {
+    arrangementId: ID!
+    numberId: ID!
+    "Recommended first, then the newest."
+    versions: [SpexifySheetMusicVersion!]!
+}
+
+type SpexifySheetMusicVersion {
+    id: ID!
+    label: String!
+    arranger: String
+    recommended: Boolean!
+    "The concert key's tonic and mode, e.g. F_SHARP and MINOR."
+    keyTonic: Tonic
+    keyMode: Mode
+    tempo: String
+    "In order."
+    files: [SpexifySheetMusicFile!]!
+}
+
+type SpexifySheetMusicFile {
+    id: ID!
+    title: String!
+    "The name it was uploaded with."
+    name: String!
+    extension: String!
+    "The type detected from the content."
+    contentType: String!
+    size: Float!
+    "SHA-256, hex; changes when the file is replaced."
+    checksum: String!
+    pages: Int
+    roleSv: String!
+    roleEn: String!
+    "The instruments it carries, in order."
+    instrumentsSv: [String!]!
+    instrumentsEn: [String!]!
+    desk: String
 }
 
 # The import API (spec 5.6; Spexipedia's docs/content-import.md, section 4) ---------------------------------------------

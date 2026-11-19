@@ -615,4 +615,49 @@ class ArchiveIntegrationTest extends AbstractIntegrationTest {
                 .variable("spex", REVIVAL_ID)
                 .execute(), "BAD_REQUEST");
     }
+
+    @Test
+    void spexifyReadsOpenArrangementVersionsAndTheirFilesOnly() throws IOException {
+        final String spexify = serviceToken("fgv-spexify-service");
+        final String versionId = arrangementVersion(SPEX_ID, "Sheet music for Spexify");
+        final String fileId = addFile(versionId, pdf("Partitur.pdf", 1), null, null, null);
+        final String numberId = graphQl(EDITOR).document("query($id: ID!) { version(id: $id) { arrangement { numberId } } }")
+                .variable("id", versionId).execute()
+                .path("version.arrangement.numberId").entity(String.class).get();
+        final String query = """
+                query($numbers: [ID!]!) { spexifySheetMusic(numberIds: $numbers) {
+                    numberId versions { id label files { id extension roleEn } } } }""";
+
+        // Published but restricted: not for Spexify
+        publish(versionId);
+        graphQlWithToken(spexify).document(query).variable("numbers", List.of(numberId)).execute()
+                .path("spexifySheetMusic").entityList(Object.class).hasSize(0);
+        assertThat(getWithToken("/api/files/" + fileId, spexify).getStatusCode().value()).isEqualTo(404);
+
+        graphQl(EDITOR).document("mutation($id: ID!) { versionUpdate(id: $id, input: {label: \"Original\", restricted: false}) { restricted } }")
+                .variable("id", versionId).execute()
+                .path("versionUpdate.restricted").entity(Boolean.class).isEqualTo(false);
+        graphQlWithToken(spexify).document(query).variable("numbers", List.of(numberId)).execute()
+                .path("spexifySheetMusic[0].numberId").entity(String.class).isEqualTo(numberId)
+                .path("spexifySheetMusic[0].versions[0].id").entity(String.class).isEqualTo(versionId)
+                .path("spexifySheetMusic[0].versions[0].files[0].id").entity(String.class).isEqualTo(fileId)
+                .path("spexifySheetMusic[0].versions[0].files[0].extension").entity(String.class).isEqualTo("pdf");
+        assertThat(getWithToken("/api/files/" + fileId, spexify).getStatusCode().value()).isEqualTo(200);
+
+        // A manuscript's files stay closed to it, and the query to everyone else
+        final String manuscriptFile = addFile(manuscriptVersion(true), pdf("Manus.pdf", 1), null, null, null);
+
+        assertThat(getWithToken("/api/files/" + manuscriptFile, spexify).getStatusCode().value()).isEqualTo(404);
+        expectError(graphQl(EDITOR).document(query).variable("numbers", List.of(numberId)).execute(), "FORBIDDEN");
+    }
+
+    private ResponseEntity<byte[]> getWithToken(final String path, final String token) {
+        return http().get()
+                .uri(path)
+                .header(HttpHeaders.AUTHORIZATION, token)
+                .retrieve()
+                .onStatus(_ -> true, (_, _) -> {
+                })
+                .toEntity(byte[].class);
+    }
 }

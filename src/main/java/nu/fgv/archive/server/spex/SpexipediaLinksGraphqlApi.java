@@ -33,8 +33,8 @@ import java.util.Map;
 import java.util.UUID;
 
 /**
- * What Spexipedia asks the archive with {@code LINKS}: the manuscripts of spex and the arrangements of numbers that have
- * a published version outside the trash. Titles and ids only; never files.
+ * What Spexipedia asks the archive with {@code LINKS}: the manuscripts of spex, the arrangements of numbers and the
+ * books with the numbers among their songs (spec 4.7) that have a published version outside the trash. Titles and ids only; never files.
  *
  * @author Anders Jacobsson
  * @since 1.0
@@ -71,7 +71,7 @@ public class SpexipediaLinksGraphqlApi {
         final List<UUID> spex = spexIds.subList(0, Math.min(spexIds.size(), MAX_IDS));
         final List<UUID> numbers = numberIds.subList(0, Math.min(numberIds.size(), MAX_IDS));
         final List<ManuscriptLink> manuscripts = spex.isEmpty() ? List.of() : manuscriptRepository.findBySpexIdInOrderByIdAsc(spex).stream()
-                .filter(manuscript -> manuscript.getTrashedAt() == null && published(manuscript.getVersions()))
+                .filter(manuscript -> manuscript.getTrashedAt() == null && !manuscript.getKind().isBook() && published(manuscript.getVersions()))
                 .map(manuscript -> new ManuscriptLink(manuscript.getUuid(), manuscript.getTitle(), manuscript.getSpexId()))
                 .toList();
         final Map<UUID, NumberService.NumberDto> titles = numberService.byIds(numbers);
@@ -82,7 +82,18 @@ public class SpexipediaLinksGraphqlApi {
                         arrangement.getNumberId()))
                 .toList();
 
-        return new Links(manuscripts, arrangements);
+        final java.util.Set<UUID> asked = new java.util.HashSet<>(numbers);
+        final List<BookLink> books = numbers.isEmpty() && spex.isEmpty() ? List.of() : manuscriptRepository.findBooks(numbers, spex).stream()
+                .filter(book -> book.getTrashedAt() == null && published(book.getVersions()))
+                .map(book -> new BookLink(book.getUuid(), book.getTitle(), book.getVolume(), book.getPublishedYear(),
+                        book.getKind().getNameSv(), book.getKind().getNameEn(), book.getSpexId(),
+                        book.getSongs().stream().filter(song -> song.getNumberId() != null && asked.contains(song.getNumberId()))
+                                .map(song -> new BookSongLink(song.getPosition(), java.util.Objects.requireNonNull(song.getNumberId()),
+                                        song.isTextOnly()))
+                                .toList()))
+                .toList();
+
+        return new Links(manuscripts, arrangements, books);
     }
 
     public record ManuscriptLink(UUID id, String title, @Nullable UUID spexId) {
@@ -91,6 +102,13 @@ public class SpexipediaLinksGraphqlApi {
     public record ArrangementLink(UUID id, String title, @Nullable UUID numberId) {
     }
 
-    public record Links(List<ManuscriptLink> manuscripts, List<ArrangementLink> arrangements) {
+    public record BookSongLink(int position, UUID numberId, boolean textOnly) {
+    }
+
+    public record BookLink(UUID id, String title, @Nullable Integer volume, @Nullable String publishedYear,
+                           String kindNameSv, String kindNameEn, @Nullable UUID spexId, List<BookSongLink> songs) {
+    }
+
+    public record Links(List<ManuscriptLink> manuscripts, List<ArrangementLink> arrangements, List<BookLink> books) {
     }
 }

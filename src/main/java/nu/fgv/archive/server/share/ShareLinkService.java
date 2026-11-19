@@ -470,7 +470,6 @@ public class ShareLinkService {
                     version.getUsedInSpexId() == null || !spex.containsKey(version.getUsedInSpexId()) ? null
                             : sharedSpex(spex.get(version.getUsedInSpexId())),
                     number == null ? null : number.getPosition(), number == null ? null : number.getOriginalSong(),
-                    number == null ? null : number.getLyricist(), number == null ? null : number.getComposer(),
                     version.getManuscript() == null ? null : version.getManuscript().getAuthors(), version.getArranger(),
                     version.getKey(), List.copyOf(version.getModulations()), version.getTempo(), version.getDuration(),
                     version.getDate() == null ? null : version.getDate().toString(), version.getNotes(), instrumentation, shared));
@@ -514,7 +513,7 @@ public class ShareLinkService {
 
     public record SharedVersionDto(UUID id, MaterialKind kind, String title, String label, @Nullable SharedSpexDto spex,
                                    @Nullable SharedSpexDto usedIn, @Nullable Integer numberPosition,
-                                   @Nullable String originalSong, @Nullable String lyricist, @Nullable String composer,
+                                   @Nullable String originalSong,
                                    @Nullable String authors, @Nullable String arranger, @Nullable MusicKey key,
                                    List<MusicKey> modulations, @Nullable String tempo, @Nullable String duration, @Nullable String date,
                                    @Nullable String notes, List<InstrumentationDto> instrumentation,

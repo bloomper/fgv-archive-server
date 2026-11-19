@@ -76,10 +76,4 @@ public class SpexNumber extends AbstractAuditable {
      */
     @Column(name = "original_song")
     private @Nullable String originalSong;
-
-    @Column(name = "lyricist")
-    private @Nullable String lyricist;
-
-    @Column(name = "composer")
-    private @Nullable String composer;
 }

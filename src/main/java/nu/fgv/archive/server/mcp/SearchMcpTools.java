@@ -88,7 +88,7 @@ public class SearchMcpTools {
                     result.spex().stream().map(McpToolSupport::spexRef).toList(),
                     result.manuscripts().stream().map(manuscript -> found.get(manuscript.id())).filter(Objects::nonNull).toList(),
                     result.arrangements().stream().map(arrangement -> found.get(arrangement.id())).filter(Objects::nonNull).toList(),
-                    result.numbers().stream().map(number -> new NumberHit(McpToolSupport.numberRef(number), number.lyricist(), number.composer(),
+                    result.numbers().stream().map(number -> new NumberHit(McpToolSupport.numberRef(number), number.originalSong(),
                             McpToolSupport.spexRefOrNull(spex.get(number.spexId())),
                             arrangements.containsKey(number.id()) ? arrangements.get(number.id()).id() : null)).toList());
         });
@@ -108,9 +108,10 @@ public class SearchMcpTools {
     }
 
     /**
-     * A number that matches, with its arrangement when there is one you see.
+     * A number that matches, with its original song and its arrangement when there is one you see. Its credits are
+     * Spexipedia's.
      */
-    public record NumberHit(NumberRef number, @Nullable String lyricist, @Nullable String composer, @Nullable SpexRef spex,
+    public record NumberHit(NumberRef number, @Nullable String originalSong, @Nullable SpexRef spex,
                             @Nullable UUID arrangementId) {
     }
 }

@@ -70,7 +70,10 @@ public final class MaterialDtos {
 
     public static ManuscriptDto toDto(final Manuscript manuscript) {
         return new ManuscriptDto(manuscript.getUuid(), manuscript.getSpexId(), manuscript.getTitle(), manuscript.getAuthors(),
-                manuscript.getDescription(), manuscript.getTrashedAt() != null, manuscript.getCreatedAt(), manuscript.getKind().getId());
+                manuscript.getDescription(), manuscript.getTrashedAt() != null, manuscript.getCreatedAt(), manuscript.getKind().getId(),
+                manuscript.getKind().isBook(), manuscript.getVolume(), manuscript.getPublishedYear(),
+                manuscript.getSongs().stream().map(song -> new BookSongDto(song.getPosition(), song.getNumberId(), song.getTitle(),
+                        song.isTextOnly())).toList());
     }
 
     public static ArrangementDto toDto(final Arrangement arrangement) {
@@ -96,8 +99,21 @@ public final class MaterialDtos {
                 .toList();
     }
 
+    /**
+     * A document; one of a book kind is a book with a volume, a year and its songs (spec 4.7).
+     */
     public record ManuscriptDto(UUID id, @Nullable UUID spexId, String title, @Nullable String authors,
-                                @Nullable String description, boolean trashed, Instant createdAt, long kindKey) {
+                                @Nullable String description, boolean trashed, Instant createdAt, long kindKey,
+                                boolean book, @Nullable Integer volume, @Nullable String publishedYear, List<BookSongDto> songs) {
+    }
+
+    /**
+     * A song of a book: a number from Spexipedia or a free title.
+     */
+    public record BookSongDto(int position, @Nullable UUID numberId, @Nullable String title, boolean textOnly) {
+    }
+
+    public record BookSongInput(@Nullable UUID numberId, @Nullable String title, @Nullable Boolean textOnly) {
     }
 
     public record ArrangementDto(UUID id, UUID numberId, @Nullable String description, boolean trashed,
@@ -120,11 +136,17 @@ public final class MaterialDtos {
      * kindId: a document kind; the first when left out on a new document, unchanged when left out on an update.
      */
     public record ManuscriptInput(@Nullable UUID spexId, @Nullable String title, @Nullable String authors,
-                                  @Nullable String description, @Nullable UUID kindId) {
+                                  @Nullable String description, @Nullable UUID kindId, @Nullable Integer volume,
+                                  @Nullable String publishedYear) {
 
         public ManuscriptInput(final @Nullable UUID spexId, final @Nullable String title, final @Nullable String authors,
                                final @Nullable String description) {
-            this(spexId, title, authors, description, null);
+            this(spexId, title, authors, description, null, null, null);
+        }
+
+        public ManuscriptInput(final @Nullable UUID spexId, final @Nullable String title, final @Nullable String authors,
+                               final @Nullable String description, final @Nullable UUID kindId) {
+            this(spexId, title, authors, description, kindId, null, null);
         }
     }
 

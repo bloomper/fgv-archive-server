@@ -61,6 +61,10 @@ public class DocumentKind extends AbstractAuditable {
     @Column(name = "aliases", nullable = false)
     private String aliases = "";
 
+    /** Whether its documents are books with a song list (spec 4.7): spex books, songbooks, anniversary books. */
+    @Column(name = "book", nullable = false)
+    private boolean book;
+
     @Column(name = "position", nullable = false)
     private int position;
 

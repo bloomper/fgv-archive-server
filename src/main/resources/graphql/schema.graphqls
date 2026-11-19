@@ -80,6 +80,8 @@ type Mutation {
     manuscriptCreate(input: ManuscriptInput!): Manuscript!
     "EDITOR. The spex cannot be changed."
     manuscriptUpdate(id: ID!, input: ManuscriptInput!): Manuscript!
+    "EDITOR. Replaces a book's songs, in the given order (spec 4.7); only for a document of a book kind."
+    bookSongsSet(id: ID!, songs: [BookSongInput!]!): Manuscript!
     "EDITOR. Takes its versions with it."
     manuscriptTrash(id: ID!): Manuscript!
     "EDITOR."
@@ -262,10 +264,8 @@ type Number {
     "Whether Spexipedia no longer has it on the spex; shown only with an arrangement."
     retired: Boolean!
     title: String!
-    "The melody, e.g. Yesterday (The Beatles)."
+    "The melody, e.g. Yesterday (The Beatles). The number's credits are Spexipedia's."
     originalSong: String
-    lyricist: String
-    composer: String
     "The arrangement, when the caller sees it."
     arrangement: Arrangement
 }
@@ -285,6 +285,33 @@ type Manuscript {
     createdAt: Instant!
     "The versions the caller sees, the recommended one first, then the newest."
     versions: [Version!]!
+    "Whether it is a book (its kind is a book kind), with a volume, a year and songs (spec 4.7)."
+    book: Boolean!
+    "A book's number in its series, e.g. 1 for Chalmersspex I."
+    volume: Int
+    "When a book was published: a year, or a date as precise as known."
+    publishedYear: String
+    "A book's songs, in the book's order."
+    songs: [BookSong!]!
+}
+
+"A song of a book: a number from Spexipedia, of any spex, or a free title."
+type BookSong {
+    position: Int!
+    numberId: ID
+    "The number, from Spexipedia; null for a free title or a number Spexipedia no longer has."
+    number: Number
+    "A free title, for a song that is no number in Spexipedia."
+    title: String
+    "Whether the book has only the words."
+    textOnly: Boolean!
+}
+
+input BookSongInput {
+    "A number from Spexipedia; or give a title."
+    numberId: ID
+    title: String
+    textOnly: Boolean = false
 }
 
 input ManuscriptInput {
@@ -296,6 +323,10 @@ input ManuscriptInput {
     description: String
     "A document kind; the first when creating without one, unchanged when updating without one."
     kindId: ID
+    "For a book: its number in its series."
+    volume: Int
+    "For a book: a year, or a date as precise as known."
+    publishedYear: String
 }
 
 "A kind of document kept by admins (spec 4.1). The import recognises it by its names and aliases."
@@ -308,6 +339,8 @@ type DocumentKind {
     aliases: [String!]!
     position: Int!
     retired: Boolean!
+    "Whether its documents are books with a song list (spec 4.7)."
+    book: Boolean!
     "How many documents of the kind the caller sees, outside the trash."
     documentCount: Int!
 }
@@ -316,6 +349,8 @@ input DocumentKindInput {
     nameSv: String!
     nameEn: String!
     aliases: [String!]
+    "Whether its documents are books with a song list; left out, unchanged."
+    book: Boolean
 }
 
 type Arrangement {
@@ -541,7 +576,7 @@ input InstrumentInput {
 type SearchResult {
     spex: [Spex!]!
     manuscripts: [Manuscript!]!
-    "Numbers whose title, original song, lyricist or composer match."
+    "Numbers whose title or original song match."
     numbers: [Number!]!
     "Arrangements whose arranger or description match."
     arrangements: [Arrangement!]!
@@ -646,8 +681,6 @@ type SharedVersion {
     "The number, for an arrangement."
     numberPosition: Int
     originalSong: String
-    lyricist: String
-    composer: String
     authors: String
     arranger: String
     key: Key
@@ -849,6 +882,26 @@ input PartFilter {
 type SpexipediaLinks {
     manuscripts: [SpexipediaManuscriptLink!]!
     arrangements: [SpexipediaArrangementLink!]!
+    "The published books with any of the numbers among their songs, or of the spex."
+    books: [SpexipediaBookLink!]!
+}
+
+"A book, for Spexipedia's numbers: the songs that are among the numbers asked for."
+type SpexipediaBookLink {
+    id: ID!
+    title: String!
+    volume: Int
+    publishedYear: String
+    kindNameSv: String!
+    kindNameEn: String!
+    spexId: ID
+    songs: [SpexipediaBookSong!]!
+}
+
+type SpexipediaBookSong {
+    position: Int!
+    numberId: ID!
+    textOnly: Boolean!
 }
 
 type SpexipediaManuscriptLink {
@@ -939,6 +992,19 @@ input ImportDocumentInput {
     title: String
     authors: String
     description: String
+    "For a book (a document of a book kind): its number in its series."
+    volume: Int
+    "For a book: a year, or a date as precise as known."
+    publishedYear: String
+    "For a book: its songs in order; replace the book's songs when given."
+    songs: [ImportBookSongInput!]
+}
+
+input ImportBookSongInput {
+    "A number in Spexipedia; or give a title."
+    numberId: ID
+    title: String
+    textOnly: Boolean
 }
 
 "The arrangement of a number in Spexipedia; a number that has one gets the versions added to it."

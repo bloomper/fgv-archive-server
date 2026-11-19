@@ -206,6 +206,21 @@ public class MaterialGraphqlApi {
     }
 
     @MutationMapping
+    public ManuscriptDto bookSongsSet(@Argument final UUID id, @Argument final List<MaterialDtos.BookSongInput> songs) {
+        return materialService.setBookSongs(id, songs);
+    }
+
+    @BatchMapping(typeName = "BookSong", field = "number")
+    public Map<MaterialDtos.BookSongDto, @Nullable NumberDto> bookSongNumber(final List<MaterialDtos.BookSongDto> songs) {
+        final Map<UUID, NumberDto> numbers = numberService.byIds(songs.stream().map(MaterialDtos.BookSongDto::numberId)
+                .filter(java.util.Objects::nonNull).distinct().toList());
+        final Map<MaterialDtos.BookSongDto, @Nullable NumberDto> result = new java.util.LinkedHashMap<>();
+
+        songs.forEach(song -> result.put(song, song.numberId() == null ? null : numbers.get(song.numberId())));
+        return result;
+    }
+
+    @MutationMapping
     public ManuscriptDto manuscriptTrash(@Argument final UUID id) {
         return materialService.trashManuscript(id, true);
     }

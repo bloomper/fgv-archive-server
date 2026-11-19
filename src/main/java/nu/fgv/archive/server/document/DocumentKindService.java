@@ -154,6 +154,9 @@ public class DocumentKindService {
         kind.setNameSv(name(input.nameSv()));
         kind.setNameEn(name(input.nameEn()));
         kind.setAliases(aliases(input.aliases()));
+        if (input.book() != null) {
+            kind.setBook(input.book());
+        }
         if (id == null) {
             kind.setPosition(repository.findAllByOrderByPositionAscIdAsc().stream().mapToInt(DocumentKind::getPosition).max().orElse(0) + 1);
         }
@@ -237,6 +240,13 @@ public class DocumentKindService {
         return into;
     }
 
-    public record DocumentKindInput(String nameSv, String nameEn, @Nullable List<String> aliases) {
+    /**
+     * book: whether documents of the kind are books with a song list; left out, unchanged (a new kind is none).
+     */
+    public record DocumentKindInput(String nameSv, String nameEn, @Nullable List<String> aliases, @Nullable Boolean book) {
+
+        public DocumentKindInput(final String nameSv, final String nameEn, final @Nullable List<String> aliases) {
+            this(nameSv, nameEn, aliases, null);
+        }
     }
 }

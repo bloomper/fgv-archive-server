@@ -51,6 +51,13 @@ public final class MaterialDtos {
     }
 
     /**
+     * Whether other applications' service accounts may see and open the version: listed and not restricted.
+     */
+    public static boolean openToServices(final MaterialVersion version) {
+        return version.isListed() && !version.isRestricted();
+    }
+
+    /**
      * Whether the caller sees the manuscript: editors every one, others one with a listed version.
      */
     public static boolean sees(final Caller caller, final Manuscript manuscript) {

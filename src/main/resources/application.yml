@@ -126,7 +126,7 @@ archive:
     service-client-id: ${API_KEYCLOAK_SERVICE_CLIENT_ID:fgv-archive-service}
     service-client-secret: ${API_KEYCLOAK_SERVICE_CLIENT_SECRET:}
   security:
-    authorized-parties: ${API_SECURITY_AUTHORIZED_PARTIES:fgv-archive,fgv-spexipedia-service,fgv-content-migration}
+    authorized-parties: ${API_SECURITY_AUTHORIZED_PARTIES:fgv-archive,fgv-spexipedia-service,fgv-spexify-service,fgv-content-migration}
   mcp:
     # The Keycloak clients whose tokens the MCP endpoint accepts, and only it
     authorized-parties: ${API_KEYCLOAK_MCP_CLIENT_ID:fgv-archive-mcp}

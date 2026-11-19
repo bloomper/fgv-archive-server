@@ -32,6 +32,11 @@ public enum Role {
      */
     LINKS,
     /**
+     * Spexify's service account: the open, published arrangement versions of numbers and their files, to show sheet
+     * music beside the recordings, and nothing else (the spec, 5.7).
+     */
+    SPEXIFY,
+    /**
      * Spexipedia's service account: telling the application that its change feed has something new.
      */
     NOTIFY,

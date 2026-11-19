@@ -24,6 +24,7 @@ import nu.fgv.archive.server.file.FileDtos.FileDto;
 import nu.fgv.archive.server.file.FileDtos.FileGuessDto;
 import nu.fgv.archive.server.file.FileDtos.FileInput;
 import nu.fgv.archive.server.material.MaterialDtos;
+import nu.fgv.archive.server.material.MaterialKind;
 import nu.fgv.archive.server.material.MaterialVersion;
 import nu.fgv.archive.server.material.MaterialVersionRepository;
 import nu.fgv.archive.server.upload.UploadService;
@@ -205,6 +206,13 @@ public class FileService {
     public StoredFile open(final UUID id) {
         final Caller caller = callerService.current();
 
+        if (!caller.isUser() && caller.isSpexifyService()) {
+            // Spexify's service account opens the files of open arrangement versions only, as it lists them
+            return repository.findByUuid(id)
+                    .filter(found -> found.getVersion().getKind() == MaterialKind.ARRANGEMENT && MaterialDtos.openToServices(found.getVersion()))
+                    .map(this::stored)
+                    .orElseThrow(() -> new ResourceNotFoundException("error.file.notFound", id));
+        }
         caller.requireUser();
 
         final ArchiveFile file = repository.findByUuid(id)

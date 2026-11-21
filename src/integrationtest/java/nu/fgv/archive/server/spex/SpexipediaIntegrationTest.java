@@ -161,7 +161,7 @@ class SpexipediaIntegrationTest extends AbstractIntegrationTest {
 
         final String links = """
                 query($spex: [ID!]!, $numbers: [ID!]!) { spexipediaLinks(spexIds: $spex, numberIds: $numbers) {
-                    manuscripts { id } arrangements { id title numberId } } }""";
+                    manuscripts { id kindNameSv } arrangements { id title numberId } } }""";
         final Map<String, Object> variables = Map.of("spex", List.of(SPEX_ID), "numbers", List.of(published, unpublished));
 
         graphQlWithToken(serviceToken(SPEXIPEDIA_SERVICE)).document(links).variables(variables).execute()

@@ -908,6 +908,9 @@ type SpexipediaManuscriptLink {
     id: ID!
     title: String!
     spexId: ID
+    "The document's kind: a manuscript, a programme, press cuttings …"
+    kindNameSv: String!
+    kindNameEn: String!
 }
 
 type SpexipediaArrangementLink {

@@ -72,7 +72,8 @@ public class SpexipediaLinksGraphqlApi {
         final List<UUID> numbers = numberIds.subList(0, Math.min(numberIds.size(), MAX_IDS));
         final List<ManuscriptLink> manuscripts = spex.isEmpty() ? List.of() : manuscriptRepository.findBySpexIdInOrderByIdAsc(spex).stream()
                 .filter(manuscript -> manuscript.getTrashedAt() == null && !manuscript.getKind().isBook() && published(manuscript.getVersions()))
-                .map(manuscript -> new ManuscriptLink(manuscript.getUuid(), manuscript.getTitle(), manuscript.getSpexId()))
+                .map(manuscript -> new ManuscriptLink(manuscript.getUuid(), manuscript.getTitle(), manuscript.getSpexId(),
+                        manuscript.getKind().getNameSv(), manuscript.getKind().getNameEn()))
                 .toList();
         final Map<UUID, NumberService.NumberDto> titles = numberService.byIds(numbers);
         final List<ArrangementLink> arrangements = numbers.isEmpty() ? List.of() : arrangementRepository.findByNumberIdIn(numbers).stream()
@@ -96,7 +97,7 @@ public class SpexipediaLinksGraphqlApi {
         return new Links(manuscripts, arrangements, books);
     }
 
-    public record ManuscriptLink(UUID id, String title, @Nullable UUID spexId) {
+    public record ManuscriptLink(UUID id, String title, @Nullable UUID spexId, String kindNameSv, String kindNameEn) {
     }
 
     public record ArrangementLink(UUID id, String title, @Nullable UUID numberId) {

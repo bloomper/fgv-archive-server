@@ -79,7 +79,8 @@ public class SecurityConfig {
                     new JwtAudienceValidator(resource),
                     new JwtClaimValidator<String>("azp", properties.mcp().authorizedParties()::contains),
                     accessTokenTypeValidator(),
-                    new JwtClaimValidator<String>(JwtClaimNames.SUB, StringUtils::hasText)
+                    new JwtClaimValidator<String>(JwtClaimNames.SUB, StringUtils::hasText),
+                    new JwtClaimValidator<String>("email", StringUtils::hasText)
             ));
             return decoder;
         });

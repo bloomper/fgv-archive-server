@@ -45,10 +45,16 @@ public final class ImportRecords {
     }
 
     /**
-     * A document of a kind (a manuscript, a programme, a synopsis …) of an original spex.
+     * A document of a kind (a manuscript, a programme, a synopsis …) of an original spex, or of FGV's own. One of a
+     * book kind may have a volume, a year and songs (spec 4.7), which replace the book's songs
+     * when given.
      */
     public record ImportDocument(String sourceKey, @Nullable UUID spexId, @Nullable String kind, @Nullable String title,
-                                 @Nullable String authors, @Nullable String description) {
+                                 @Nullable String authors, @Nullable String description, @Nullable Integer volume,
+                                 @Nullable String publishedYear, @Nullable List<ImportBookSong> songs) {
+    }
+
+    public record ImportBookSong(@Nullable UUID numberId, @Nullable String title, @Nullable Boolean textOnly) {
     }
 
     public record ImportArrangement(String sourceKey, UUID numberId, @Nullable String description) {

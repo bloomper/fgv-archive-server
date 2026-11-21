@@ -130,7 +130,7 @@ public class SampleDataImporter {
     private static final Duration SPEXIPEDIA_RETRY_INTERVAL = Duration.ofSeconds(10);
     private static final List<String> TABLES = List.of("audit_entry", "download_log", "access_request_file", "access_request",
             "share_link_file", "share_link_version", "share_link", "file_page", "archive_file", "instrumentation_entry",
-            "material_version", "arrangement", "manuscript", "number", "spex_character", "spex", "spexipedia_task", "spexipedia_task_category",
+            "material_version", "arrangement", "book_song", "manuscript", "number", "spex_character", "spex", "spexipedia_task", "spexipedia_task_category",
             "spexipedia_category", "upload_session", "app_user");
     private static final List<MusicKey> KEYS = List.of(new MusicKey(Tonic.C, Mode.MAJOR), new MusicKey(Tonic.G, Mode.MAJOR),
             new MusicKey(Tonic.F, Mode.MAJOR), new MusicKey(Tonic.D, Mode.MINOR), new MusicKey(Tonic.B_FLAT, Mode.MAJOR),
@@ -607,6 +607,9 @@ public class SampleDataImporter {
         document.setKind(kind);
         document.setTitle(title);
         document.setDescription("Exempeldata: " + (spexId == null ? "ett av FGV:s egna dokument." : "ett dokument från kommittéernas mappar."));
+        if (kind.isBook()) {
+            bookSongs(document, key, year);
+        }
         manuscriptRepository.save(document);
 
         final MaterialVersion version = version(MaterialKind.MANUSCRIPT, document, null, "Original", spexId, "document-" + key, true, false);
@@ -614,8 +617,42 @@ public class SampleDataImporter {
 
         version.setRecommended(true);
         version.setDate(year == null ? null : LocalDate.of(year, 3, 1));
+        // FGV's own books are recorded before they are scanned: a version without a file
+        if (kind.isBook() && spexId == null) {
+            return;
+        }
         SampleFiles.manuscript(pdf, title, version.getLabel(), 2);
         addFile(version, pdf, title, FileRole.OTHER, List.of(), 1);
+    }
+
+    /**
+     * A book's volume, year and songs (spec 4.7): numbers of several spex, a free title and a song with only the words.
+     */
+    private void bookSongs(final Manuscript book, final String key, final @Nullable Integer year) {
+        final List<SpexNumber> numbers = numberRepository.findAll().stream()
+                .filter(number -> !number.isRetired())
+                .sorted(java.util.Comparator.comparing(SpexNumber::getUuid))
+                .toList();
+        final int start = Math.floorMod(key.hashCode(), Math.max(1, numbers.size()));
+
+        book.setVolume(Math.floorMod(key.hashCode(), 9) + 1);
+        book.setPublishedYear(year == null ? null : String.valueOf(year));
+        for (int i = 0; i < Math.min(8, numbers.size()); i++) {
+            final nu.fgv.archive.server.material.BookSong song = new nu.fgv.archive.server.material.BookSong();
+
+            song.setBook(book);
+            song.setPosition(book.getSongs().size() + 1);
+            song.setNumberId(numbers.get((start + i * 7) % numbers.size()).getUuid());
+            song.setTextOnly(i % 4 == 3);
+            book.getSongs().add(song);
+        }
+
+        final nu.fgv.archive.server.material.BookSong free = new nu.fgv.archive.server.material.BookSong();
+
+        free.setBook(book);
+        free.setPosition(book.getSongs().size() + 1);
+        free.setTitle("Gaudeamus igitur");
+        book.getSongs().add(free);
     }
 
     // ------------------------------------------------------------------------------------------- links and logs

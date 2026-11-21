@@ -38,6 +38,27 @@ public interface ManuscriptRepository extends JpaRepository<Manuscript, Long> {
 
     List<Manuscript> findBySpexIdInOrderByIdAsc(Collection<UUID> spexIds);
 
+    /**
+     * Books (documents of a book kind) of the spex, or with any of the numbers among their songs. Neither list may be
+     * empty; see {@link #findBooks}.
+     */
+    @org.springframework.data.jpa.repository.Query("""
+            SELECT DISTINCT m FROM Manuscript m WHERE m.kind.book = TRUE
+               AND (m.spexId IN :spexIds OR EXISTS (SELECT 1 FROM BookSong s WHERE s.book = m AND s.numberId IN :numberIds))
+            ORDER BY m.title""")
+    List<Manuscript> findBooksOf(@org.springframework.data.repository.query.Param("numberIds") Collection<UUID> numberIds,
+                                 @org.springframework.data.repository.query.Param("spexIds") Collection<UUID> spexIds);
+
+    /**
+     * Books of the spex, or with any of the numbers among their songs.
+     */
+    default List<Manuscript> findBooks(final Collection<UUID> numberIds, final Collection<UUID> spexIds) {
+        // An empty IN list is not valid SQL; an id nothing has stands in for it
+        final List<UUID> none = List.of(new UUID(0, 0));
+
+        return findBooksOf(numberIds.isEmpty() ? none : numberIds, spexIds.isEmpty() ? none : spexIds);
+    }
+
     List<Manuscript> findByTrashedAtIsNotNullOrderByTrashedAtDesc();
 
     List<Manuscript> findByKindUuidAndTrashedAtIsNullOrderByTitleAsc(UUID kindUuid);

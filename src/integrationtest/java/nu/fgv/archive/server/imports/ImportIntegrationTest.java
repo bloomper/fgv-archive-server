@@ -117,7 +117,7 @@ class ImportIntegrationTest extends AbstractIntegrationTest {
 
         graphQl(EDITOR).document("query($id: ID!) { manuscript(id: $id) { spex { id } kind { nameSv } title } }").variable("id", doc).execute()
                 .path("manuscript.spex").valueIsNull()
-                .path("manuscript.kind.nameSv").entity(String.class).isEqualTo("Spexbok")
+                .path("manuscript.kind.nameSv").entity(String.class).isEqualTo("Sångbok")
                 .path("manuscript.title").entity(String.class).isEqualTo("Sånghäfte 2001");
     }
 

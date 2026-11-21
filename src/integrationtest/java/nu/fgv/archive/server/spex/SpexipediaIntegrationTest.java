@@ -161,7 +161,7 @@ class SpexipediaIntegrationTest extends AbstractIntegrationTest {
 
         final String links = """
                 query($spex: [ID!]!, $numbers: [ID!]!) { spexipediaLinks(spexIds: $spex, numberIds: $numbers) {
-                    manuscripts { id } arrangements { id title numberId } } }""";
+                    manuscripts { id kindNameSv } arrangements { id title numberId } } }""";
         final Map<String, Object> variables = Map.of("spex", List.of(SPEX_ID), "numbers", List.of(published, unpublished));
 
         graphQlWithToken(serviceToken(SPEXIPEDIA_SERVICE)).document(links).variables(variables).execute()
@@ -169,6 +169,53 @@ class SpexipediaIntegrationTest extends AbstractIntegrationTest {
                 .path("spexipediaLinks.arrangements[*].id").entityList(String.class).containsExactly(arrangementId)
                 .path("spexipediaLinks.arrangements[0].title").entity(String.class).isEqualTo("Ouvertyr");
         expectError(graphQl(EDITOR).document(links).variables(variables).execute(), "FORBIDDEN");
+    }
+
+    @Test
+    void aBookListsNumbersOfAnySpexAndSpexipediaReadsThePublishedOnes() {
+        final String overture = number(SPEX_ID, "Ouvertyr");
+        final String other = number(OTHER_SPEX_ID, "Sultanens visa");
+        // Spex book, a book kind
+        final String bookId = graphQl(EDITOR).document("""
+                        mutation { manuscriptCreate(input: {title: "Chalmersspex I", kindId: "00000000-0000-7000-8000-00000000e010",
+                            volume: 1, publishedYear: "1975"}) { id book volume publishedYear versions { id } } }""")
+                .execute()
+                .path("manuscriptCreate.book").entity(Boolean.class).isEqualTo(true)
+                .path("manuscriptCreate.volume").entity(Integer.class).isEqualTo(1)
+                .path("manuscriptCreate.id").entity(String.class).get();
+
+        graphQl(EDITOR).document("""
+                        mutation($id: ID!, $a: ID!, $b: ID!) { bookSongsSet(id: $id, songs: [{numberId: $a}, {title: "Gaudeamus"},
+                            {numberId: $b, textOnly: true}]) { songs { position number { title } title textOnly } } }""")
+                .variables(Map.of("id", bookId, "a", overture, "b", other))
+                .execute()
+                .path("bookSongsSet.songs[0].number.title").entity(String.class).isEqualTo("Ouvertyr")
+                .path("bookSongsSet.songs[1].title").entity(String.class).isEqualTo("Gaudeamus")
+                .path("bookSongsSet.songs[2].textOnly").entity(Boolean.class).isEqualTo(true);
+        // A manuscript has no songs
+        final String manuscript = graphQl(EDITOR).document("mutation($spex: ID!) { manuscriptCreate(input: {spexId: $spex}) { id } }")
+                .variable("spex", SPEX_ID).execute().path("manuscriptCreate.id").entity(String.class).get();
+
+        expectError(graphQl(EDITOR).document("mutation($id: ID!) { bookSongsSet(id: $id, songs: [{title: \"x\"}]) { id } }")
+                .variable("id", manuscript).execute(), "BAD_REQUEST");
+
+        final String links = """
+                query($numbers: [ID!]!) { spexipediaLinks(spexIds: [], numberIds: $numbers) {
+                    books { id title volume kindNameSv songs { numberId textOnly } } } }""";
+
+        // Unpublished, the book is not linked to
+        graphQlWithToken(serviceToken(SPEXIPEDIA_SERVICE)).document(links).variable("numbers", List.of(other)).execute()
+                .path("spexipediaLinks.books").entityList(Object.class).hasSize(0);
+
+        final String versionId = graphQl(EDITOR).document("query($id: ID!) { manuscript(id: $id) { versions { id } } }")
+                .variable("id", bookId).execute().path("manuscript.versions[0].id").entity(String.class).get();
+
+        graphQl(EDITOR).document("mutation($id: ID!) { versionPublish(id: $id, published: true) { id } }").variable("id", versionId).execute();
+        graphQlWithToken(serviceToken(SPEXIPEDIA_SERVICE)).document(links).variable("numbers", List.of(other)).execute()
+                .path("spexipediaLinks.books[0].id").entity(String.class).isEqualTo(bookId)
+                .path("spexipediaLinks.books[0].kindNameSv").entity(String.class).isEqualTo("Spexbok")
+                .path("spexipediaLinks.books[0].songs[*].numberId").entityList(String.class).containsExactly(other)
+                .path("spexipediaLinks.books[0].songs[0].textOnly").entity(Boolean.class).isEqualTo(true);
     }
 
     @Test

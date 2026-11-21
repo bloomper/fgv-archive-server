@@ -71,6 +71,19 @@ public class Manuscript extends AbstractAuditable {
     @Column(name = "title", nullable = false)
     private String title;
 
+    /** A book's number in its series, e.g. 1 for Chalmersspex I (spec 4.7). */
+    @Column(name = "volume")
+    private @Nullable Integer volume;
+
+    /** When a book was published: a year, or a date as precise as known. */
+    @Column(name = "published_year")
+    private @Nullable String publishedYear;
+
+    /** A book's songs, in the book's order; only documents of a book kind have them. */
+    @jakarta.persistence.OneToMany(mappedBy = "book", cascade = jakarta.persistence.CascadeType.ALL, orphanRemoval = true)
+    @OrderBy("position")
+    private List<BookSong> songs = new ArrayList<>();
+
     @Column(name = "authors")
     private @Nullable String authors;
 

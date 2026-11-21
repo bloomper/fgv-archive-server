@@ -75,6 +75,7 @@ import java.util.stream.Collectors;
 public class MaterialService {
 
     static final int MAX_TEXT = 255;
+    static final int MAX_BOOK_SONGS = 1_000;
     static final int MAX_AUTHORS = 500;
     static final int MAX_INSTRUMENT_COUNT = 99;
     static final int MAX_MODULATIONS = 20;
@@ -469,6 +470,7 @@ public class MaterialService {
                 spex != null && spex.getTitle() != null ? spex.getTitle() : manuscript.getKind().getNameSv()));
         manuscript.setAuthors(text(input.authors(), MAX_AUTHORS));
         manuscript.setDescription(longText(input.description()));
+        applyBook(manuscript, input);
         manuscriptRepository.save(manuscript);
 
         final MaterialVersion version = newVersion(MaterialKind.MANUSCRIPT, "Original", spex == null ? null : spex.getUuid());
@@ -494,7 +496,71 @@ public class MaterialService {
         }
         manuscript.setAuthors(text(input.authors(), MAX_AUTHORS));
         manuscript.setDescription(longText(input.description()));
+        applyBook(manuscript, input);
         auditService.record("UPDATE", "MANUSCRIPT", manuscript.getUuid(), "Ändrade manuset " + manuscript.getTitle());
+        return MaterialDtos.toDto(manuscript);
+    }
+
+    /**
+     * A book's volume and year; other documents have none.
+     */
+    private static void applyBook(final Manuscript manuscript, final ManuscriptInput input) {
+        if (!manuscript.getKind().isBook()) {
+            manuscript.setVolume(null);
+            manuscript.setPublishedYear(null);
+            return;
+        }
+        if (input.volume() != null && (input.volume() < 1 || input.volume() > 10_000)) {
+            throw new BadRequestException("error.field.invalid", "volume");
+        }
+        manuscript.setVolume(input.volume());
+        if (input.publishedYear() != null && !input.publishedYear().isBlank()
+                && !input.publishedYear().strip().matches("\\d{4}(-(0[1-9]|1[0-2])(-(0[1-9]|[12]\\d|3[01]))?)?")) {
+            throw new BadRequestException("error.field.invalid", "publishedYear");
+        }
+        manuscript.setPublishedYear(input.publishedYear() == null || input.publishedYear().isBlank() ? null : input.publishedYear().strip());
+    }
+
+    /**
+     * EDITOR. Replaces a book's songs, in the given order (spec 4.7): each a number from Spexipedia (any spex) or a free
+     * title. Only documents of a book kind have songs.
+     */
+    @Transactional
+    public ManuscriptDto setBookSongs(final UUID id, final List<MaterialDtos.BookSongInput> songs) {
+        callerService.current().requireEditor();
+
+        final Manuscript manuscript = manuscriptEntity(id);
+
+        if (!manuscript.getKind().isBook()) {
+            throw new BadRequestException("error.book.notABook");
+        }
+        if (songs.size() > MAX_BOOK_SONGS) {
+            throw new BadRequestException("error.field.invalid", "songs");
+        }
+
+        final java.util.Set<UUID> numbers = numberRepository.findByUuidIn(songs.stream()
+                .map(MaterialDtos.BookSongInput::numberId).filter(Objects::nonNull).distinct().toList())
+                .stream().map(SpexNumber::getUuid).collect(java.util.stream.Collectors.toSet());
+
+        manuscript.getSongs().clear();
+        for (final MaterialDtos.BookSongInput input : songs) {
+            final BookSong song = new BookSong();
+            final String title = text(input.title(), MAX_TEXT);
+
+            if (input.numberId() == null && title == null) {
+                throw new BadRequestException("error.book.songEmpty");
+            }
+            if (input.numberId() != null && !numbers.contains(input.numberId())) {
+                throw new BadRequestException("error.number.notFound", input.numberId());
+            }
+            song.setBook(manuscript);
+            song.setPosition(manuscript.getSongs().size() + 1);
+            song.setNumberId(input.numberId());
+            song.setTitle(input.numberId() == null ? title : null);
+            song.setTextOnly(Boolean.TRUE.equals(input.textOnly()));
+            manuscript.getSongs().add(song);
+        }
+        auditService.record("UPDATE", "MANUSCRIPT", manuscript.getUuid(), "Ändrade sångerna i boken " + manuscript.getTitle());
         return MaterialDtos.toDto(manuscript);
     }
 

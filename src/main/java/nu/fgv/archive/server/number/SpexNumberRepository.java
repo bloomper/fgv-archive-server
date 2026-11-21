@@ -46,10 +46,10 @@ public interface SpexNumberRepository extends JpaRepository<SpexNumber, Long> {
     }
 
     /**
-     * Numbers whose title, original song, lyricist or composer contain the text, regardless of case.
+     * Numbers whose title or original song contain the text, regardless of case.
      */
     @Query("""
             SELECT n FROM SpexNumber n WHERE LOWER(n.title) LIKE :pattern ESCAPE '\\' OR LOWER(n.originalSong) LIKE :pattern ESCAPE '\\'
-               OR LOWER(n.lyricist) LIKE :pattern ESCAPE '\\' OR LOWER(n.composer) LIKE :pattern ESCAPE '\\' ORDER BY n.title""")
+               ORDER BY n.title""")
     List<SpexNumber> search(String pattern);
 }

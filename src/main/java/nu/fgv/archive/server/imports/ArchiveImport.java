@@ -130,9 +130,14 @@ public class ArchiveImport {
         @Override
         public UUID apply(final ImportDocument record, final @Nullable UUID existing, final Batch batch) {
             final MaterialDtos.ManuscriptInput input = new MaterialDtos.ManuscriptInput(record.spexId(), record.title(),
-                    record.authors(), record.description(), documentKind(record.kind(), batch));
+                    record.authors(), record.description(), documentKind(record.kind(), batch), record.volume(), record.publishedYear());
+            final UUID id = existing == null ? materials.createManuscript(input).id() : materials.updateManuscript(existing, input).id();
 
-            return existing == null ? materials.createManuscript(input).id() : materials.updateManuscript(existing, input).id();
+            if (record.songs() != null) {
+                materials.setBookSongs(id, record.songs().stream()
+                        .map(song -> new MaterialDtos.BookSongInput(song.numberId(), song.title(), song.textOnly())).toList());
+            }
+            return id;
         }
 
         @Override

@@ -67,7 +67,7 @@ public class NumberService {
 
     public static NumberDto toDto(final SpexNumber number) {
         return new NumberDto(number.getUuid(), number.getSpexId(), number.getAct(), number.getPosition(), number.getTitle(),
-                number.getOriginalSong(), number.getLyricist(), number.getComposer(), number.isRetired());
+                number.getOriginalSong(), number.isRetired());
     }
 
     /**
@@ -181,7 +181,7 @@ public class NumberService {
      * @param retired  whether Spexipedia no longer has it on the spex
      */
     public record NumberDto(UUID id, UUID spexId, int act, int position, String title, @Nullable String originalSong,
-                            @Nullable String lyricist, @Nullable String composer, boolean retired) {
+                            boolean retired) {
     }
 
     /**

@@ -38,7 +38,7 @@ services:
       SERVER_PORT: 8080
       MANAGEMENT_SERVER_PORT: 9000
       LOGGING_FILE_PATH: /data/log_data
-      SERVER_FORWARD_HEADERS_STRATEGY: native
+      SERVER_REQUEST_HEADER_FORWARDED_STRATEGY: web-server
       # Bind straight to the properties, which the local profile sets to localhost values
       ARCHIVE_KEYCLOAK_URL: http://keycloak-server:8080/auth
       SPRING_MAIL_HOST: mailpit

@@ -31,6 +31,7 @@ import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -268,6 +269,38 @@ class ArchiveIntegrationTest extends AbstractIntegrationTest {
                 .path("search.textHits[0].snippet").entity(String.class).satisfies(snippet -> assertThat(snippet).containsIgnoringCase(SampleFiles.SEARCH_WORD))
                 .path("search.textHits[0].file.pages").entity(Integer.class).isEqualTo(3)
                 .path("search.textHits[0].file.hasPreview").entity(Boolean.class).isEqualTo(true);
+    }
+
+    @Test
+    void spexipediaGetsAnOpenDocumentWithSignedLinksToItsPreviewsOnly() throws IOException {
+        final String versionId = manuscriptVersion(false);
+        final String fileId = addFile(versionId, pdf("Manus.pdf", 2), null, null, null);
+        final String query = "query($id: ID!) { spexipediaDocument(id: $id) { id kindNameSv files { id pages previewUrl } } }";
+
+        assertThat(fileProcessor.processPending()).isEqualTo(1);
+
+        final String manuscriptId = jdbcClient.sql("SELECT m.uuid FROM manuscript m JOIN material_version v ON v.manuscript_id = m.id WHERE v.uuid = :v")
+                .param("v", versionId).query(String.class).single();
+        final String service = serviceToken("fgv-spexipedia-service");
+
+        // Not before it is published
+        graphQlWithToken(service).document(query).variable("id", manuscriptId).execute().path("spexipediaDocument").valueIsNull();
+        publish(versionId);
+
+        final String previewUrl = graphQlWithToken(service).document(query).variable("id", manuscriptId).execute()
+                .path("spexipediaDocument.files[0].id").entity(String.class).isEqualTo(fileId)
+                .path("spexipediaDocument.files[0].pages").entity(Integer.class).isEqualTo(2)
+                .path("spexipediaDocument.files[0].previewUrl").entity(String.class).get();
+        final String path = previewUrl.substring(previewUrl.indexOf("/media/"));
+
+        final ResponseEntity<byte[]> preview = get(path, null, null);
+
+        assertThat(preview.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(preview.getHeaders().getContentType()).hasToString("image/png");
+        // A link opens its own preview only, and no file
+        assertThat(get(path.replace("preview", "x"), null, null).getStatusCode().is4xxClientError()).isTrue();
+        assertThat(get(path.replace(fileId, UUID.randomUUID().toString()), null, null).getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+        expectError(graphQl(EDITOR).document(query).variable("id", manuscriptId).execute(), "FORBIDDEN");
     }
 
     @Test

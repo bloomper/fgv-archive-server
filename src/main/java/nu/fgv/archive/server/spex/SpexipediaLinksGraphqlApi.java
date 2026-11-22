@@ -17,7 +17,10 @@
 package nu.fgv.archive.server.spex;
 
 import nu.fgv.archive.server.material.ArrangementRepository;
+import nu.fgv.archive.server.download.PreviewLinkSigner;
+import nu.fgv.archive.server.file.ArchiveFile;
 import nu.fgv.archive.server.material.ManuscriptRepository;
+import nu.fgv.archive.server.material.MaterialDtos;
 import nu.fgv.archive.server.material.MaterialVersion;
 import nu.fgv.archive.server.number.NumberService;
 import nu.fgv.archive.server.user.CallerService;
@@ -48,13 +51,43 @@ public class SpexipediaLinksGraphqlApi {
     private final ArrangementRepository arrangementRepository;
     private final NumberService numberService;
     private final CallerService callerService;
+    private final PreviewLinkSigner signer;
 
     public SpexipediaLinksGraphqlApi(final ManuscriptRepository manuscriptRepository, final ArrangementRepository arrangementRepository,
-                                     final NumberService numberService, final CallerService callerService) {
+                                     final NumberService numberService, final CallerService callerService,
+                                     final PreviewLinkSigner signer) {
         this.manuscriptRepository = manuscriptRepository;
         this.arrangementRepository = arrangementRepository;
         this.numberService = numberService;
         this.callerService = callerService;
+        this.signer = signer;
+    }
+
+    /**
+     * LINKS. A document for a section of a spex page in Spexipedia (its spec, 4.2.1): kind, title and year, and the files
+     * of its open version (published, outside the trash, not restricted; the recommended one, else the newest) with
+     * signed links to their first-page previews. Never the files themselves. Null for a document without an open
+     * version.
+     */
+    @QueryMapping
+    @Transactional(readOnly = true)
+    public @Nullable DocumentEmbed spexipediaDocument(@Argument final UUID id) {
+        if (!callerService.current().isLinksService()) {
+            throw new AccessDeniedException("LINKS required");
+        }
+        return manuscriptRepository.findByUuid(id).filter(manuscript -> manuscript.getTrashedAt() == null).flatMap(manuscript -> manuscript.getVersions().stream()
+                .filter(MaterialDtos::openToServices)
+                .max(java.util.Comparator.comparing(MaterialVersion::isRecommended)
+                        .thenComparing(version -> version.getPublishedAt() == null ? java.time.Instant.EPOCH : version.getPublishedAt()))
+                .map(version -> new DocumentEmbed(manuscript.getUuid(), manuscript.getTitle(),
+                        manuscript.getPublishedYear() != null ? manuscript.getPublishedYear()
+                                : version.getDate() == null ? null : String.valueOf(version.getDate().getYear()),
+                        manuscript.getSpexId(), manuscript.getKind().getNameSv(), manuscript.getKind().getNameEn(),
+                        version.getFiles().stream().sorted(java.util.Comparator.comparingInt(ArchiveFile::getPosition))
+                                .map(file -> new FilePreview(file.getUuid(), file.getTitle(), file.getPages(),
+                                        file.isHasPreview() ? signer.preview(file.getUuid()).orElse(null) : null))
+                                .toList())))
+                .orElse(null);
     }
 
     private static boolean published(final List<MaterialVersion> versions) {
@@ -111,5 +144,12 @@ public class SpexipediaLinksGraphqlApi {
     }
 
     public record Links(List<ManuscriptLink> manuscripts, List<ArrangementLink> arrangements, List<BookLink> books) {
+    }
+
+    public record DocumentEmbed(UUID id, String title, @Nullable String year, @Nullable UUID spexId, String kindNameSv,
+                                String kindNameEn, List<FilePreview> files) {
+    }
+
+    public record FilePreview(UUID id, String title, @Nullable Integer pages, @Nullable String previewUrl) {
     }
 }

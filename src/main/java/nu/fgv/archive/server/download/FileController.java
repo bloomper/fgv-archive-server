@@ -18,6 +18,7 @@ package nu.fgv.archive.server.download;
 
 import nu.fgv.archive.server.file.FileService;
 import nu.fgv.archive.server.file.FileService.StoredFile;
+import nu.fgv.archive.server.util.error.ResourceNotFoundException;
 import nu.fgv.archive.server.file.PartFilter;
 import nu.fgv.archive.server.file.Pitch;
 import org.jspecify.annotations.Nullable;
@@ -46,10 +47,13 @@ public class FileController {
 
     private final FileService fileService;
     private final DownloadService downloadService;
+    private final PreviewLinkSigner previewLinkSigner;
 
-    public FileController(final FileService fileService, final DownloadService downloadService) {
+    public FileController(final FileService fileService, final DownloadService downloadService,
+                          final PreviewLinkSigner previewLinkSigner) {
         this.fileService = fileService;
         this.downloadService = downloadService;
+        this.previewLinkSigner = previewLinkSigner;
     }
 
     /**
@@ -72,6 +76,19 @@ public class FileController {
     @GetMapping("/api/files/{id}/preview")
     public ResponseEntity<Resource> preview(@PathVariable final UUID id) {
         return FileResponses.preview(fileService.open(id));
+    }
+
+    /**
+     * A first-page preview through a link signed for Spexipedia's spex pages (spexipediaDocument), without a token.
+     */
+    @GetMapping("/media/{expires}/{signature}/files/{id}/preview")
+    public ResponseEntity<Resource> signedPreview(@PathVariable final long expires, @PathVariable final String signature,
+                                                  @PathVariable final UUID id) {
+        if (!previewLinkSigner.valid(expires, signature, id)) {
+            // A forged or expired link tells nothing about the file
+            throw new ResourceNotFoundException("error.file.notFound", id);
+        }
+        return FileResponses.preview(fileService.linkedPreview(id));
     }
 
     /**

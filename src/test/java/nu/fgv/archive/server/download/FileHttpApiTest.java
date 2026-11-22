@@ -75,6 +75,8 @@ class FileHttpApiTest extends AbstractApiTest {
     private FileService fileService;
     @MockitoBean
     private DownloadService downloadService;
+    @MockitoBean
+    private PreviewLinkSigner previewLinkSigner;
     @TempDir
     private Path folder;
     private StoredFile file;
@@ -163,6 +165,29 @@ class FileHttpApiTest extends AbstractApiTest {
                 .andExpect(header().string("Content-Security-Policy", "sandbox; default-src 'none'"))
                 .andExpect(header().string("X-Content-Type-Options", "nosniff"))
                 .andDo(document("file-preview-get", fileId, secureRequestHeaders, security(List.of("USER", "EDITOR for restricted files"))));
+    }
+
+    @Test
+    void servesAPreviewThroughASignedLink() throws Exception {
+        when(previewLinkSigner.valid(1_800_000_000L, "c2lnbmF0dXJl", uuid(1))).thenReturn(true);
+        when(fileService.linkedPreview(uuid(1))).thenReturn(file);
+
+        mockMvc
+                .perform(get("/media/{expires}/{signature}/files/{id}/preview", 1_800_000_000L, "c2lnbmF0dXJl", uuid(1)))
+                .andExpect(status().isOk())
+                .andExpect(header().string(HttpHeaders.CONTENT_TYPE, "image/png"))
+                .andExpect(header().string("X-Content-Type-Options", "nosniff"))
+                .andDo(document("file-preview-signed-get", pathParameters(
+                        parameterWithName("expires").description("When the link stops working, in seconds since 1970"),
+                        parameterWithName("signature").description("The signature Spexarkivet made for the link"),
+                        parameterWithName("id").description("The id of the file"))));
+    }
+
+    @Test
+    void aWrongSignatureIsNotFound() throws Exception {
+        mockMvc
+                .perform(get("/media/{expires}/{signature}/files/{id}/preview", 1_800_000_000L, "ZmVs", uuid(1)))
+                .andExpect(status().isNotFound());
     }
 
     @Test

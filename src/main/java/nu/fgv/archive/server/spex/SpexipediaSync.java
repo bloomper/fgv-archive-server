@@ -23,6 +23,8 @@ import nu.fgv.archive.server.file.InstrumentService;
 import nu.fgv.archive.server.number.NumberService;
 import nu.fgv.archive.server.number.SpexNumber;
 import nu.fgv.archive.server.number.SpexNumberRepository;
+import nu.fgv.archive.server.util.StoredText;
+import nu.fgv.archive.server.util.TextException;
 import org.jspecify.annotations.Nullable;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -150,11 +152,11 @@ public class SpexipediaSync {
                 }
             }
         } catch (final RuntimeException e) {
-            final String error = Objects.requireNonNullElse(e.getMessage(), e.getClass().getSimpleName());
+            final StoredText error = TextException.text(e);
 
-            log.warn("Sync from Spexipedia failed after {} changes: {}", applied, error);
+            log.warn("Sync from Spexipedia failed after {} changes: {}", applied, e.toString());
             jdbc.sql("UPDATE spexipedia_sync SET last_error = :error WHERE id = 1")
-                    .param("error", error.substring(0, Math.min(error.length(), MAX_ERROR))).update();
+                    .param("error", error.encode(MAX_ERROR)).update();
             throw e;
         }
         jdbc.sql("UPDATE spexipedia_sync SET last_success = :at, last_error = NULL WHERE id = 1").param("at", now()).update();
@@ -219,7 +221,7 @@ public class SpexipediaSync {
         return jdbc.sql("SELECT failing_attempts FROM spexipedia_sync WHERE id = 1").query(Integer.class).single();
     }
 
-    private void skip(final FeedChange change, final String error) {
+    private void skip(final FeedChange change, final StoredText error) {
         log.error("Skipped change {} from Spexipedia ({} {} {}) after {} attempts: {}", change.sequence(), change.change(),
                 change.kind(), change.id(), MAX_ATTEMPTS, error);
         transactionTemplate.executeWithoutResult(_ -> {
@@ -227,14 +229,14 @@ public class SpexipediaSync {
                             INSERT INTO spexipedia_sync_skipped (sequence, kind, record_id, change_type, error, skipped_at)
                             VALUES (:sequence, :kind, :id, :change, :error, :at)""")
                     .param("sequence", change.sequence()).param("kind", change.kind()).param("id", change.id().toString())
-                    .param("change", change.change()).param("error", error.substring(0, Math.min(error.length(), MAX_ERROR)))
+                    .param("change", change.change()).param("error", error.encode(MAX_ERROR))
                     .param("at", now()).update();
             moveCursor(change.sequence(), 0);
         });
     }
 
-    private static String message(final RuntimeException e) {
-        return Objects.requireNonNullElse(e.getMessage(), e.getClass().getSimpleName());
+    private static StoredText message(final RuntimeException e) {
+        return TextException.text(e);
     }
 
     private Instant now() {

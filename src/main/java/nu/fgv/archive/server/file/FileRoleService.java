@@ -17,7 +17,7 @@
 package nu.fgv.archive.server.file;
 
 import nu.fgv.archive.server.audit.AuditService;
-import nu.fgv.archive.server.audit.AuditText;
+import nu.fgv.archive.server.util.StoredText;
 import nu.fgv.archive.server.file.FileDtos.FileRoleDto;
 import nu.fgv.archive.server.file.FileDtos.FileRoleInput;
 import nu.fgv.archive.server.user.Caller;
@@ -104,7 +104,7 @@ public class FileRoleService {
         role.setPosition(repository.findAllByOrderByPositionAscIdAsc().stream().mapToInt(FileRole::getPosition).max().orElse(0) + 1);
         repository.save(role);
         auditService.record("CREATE", "FILE_ROLE", role.getUuid(),
-                AuditText.of("audit.fileRole.create", AuditText.of("audit.name", role.getNameSv(), role.getNameEn())));
+                StoredText.of("audit.fileRole.create", StoredText.of("audit.name", role.getNameSv(), role.getNameEn())));
         return FileDtos.toDto(role);
     }
 
@@ -117,7 +117,7 @@ public class FileRoleService {
         role.setNameSv(name(input.nameSv()));
         role.setNameEn(name(input.nameEn()));
         auditService.record("UPDATE", "FILE_ROLE", role.getUuid(),
-                AuditText.of("audit.fileRole.update", AuditText.of("audit.name", role.getNameSv(), role.getNameEn())));
+                StoredText.of("audit.fileRole.update", StoredText.of("audit.name", role.getNameSv(), role.getNameEn())));
         return FileDtos.toDto(role);
     }
 
@@ -134,7 +134,7 @@ public class FileRoleService {
         for (int i = 0; i < ids.size(); i++) {
             byId.get(ids.get(i)).setPosition(i + 1);
         }
-        auditService.record("UPDATE", "FILE_ROLE", null, AuditText.of("audit.fileRole.reorder"));
+        auditService.record("UPDATE", "FILE_ROLE", null, StoredText.of("audit.fileRole.reorder"));
         return ids.stream().map(byId::get).map(FileDtos::toDto).toList();
     }
 
@@ -153,7 +153,7 @@ public class FileRoleService {
         }
         repository.delete(role);
         auditService.record("DELETE", "FILE_ROLE", role.getUuid(),
-                AuditText.of("audit.fileRole.delete", AuditText.of("audit.name", role.getNameSv(), role.getNameEn())));
+                StoredText.of("audit.fileRole.delete", StoredText.of("audit.name", role.getNameSv(), role.getNameEn())));
     }
 
     private FileRole role(final UUID id) {

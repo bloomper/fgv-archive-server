@@ -17,7 +17,7 @@
 package nu.fgv.archive.server.document;
 
 import nu.fgv.archive.server.audit.AuditService;
-import nu.fgv.archive.server.audit.AuditText;
+import nu.fgv.archive.server.util.StoredText;
 import nu.fgv.archive.server.user.CallerService;
 import nu.fgv.archive.server.util.error.BadRequestException;
 import nu.fgv.archive.server.util.error.ConflictException;
@@ -163,8 +163,8 @@ public class DocumentKindService {
         }
         repository.save(kind);
         auditService.record(id == null ? "CREATE" : "UPDATE", "DOCUMENT_KIND", kind.getUuid(),
-                AuditText.of(id == null ? "audit.documentKind.create" : "audit.documentKind.update",
-                        AuditText.of("audit.name", kind.getNameSv(), kind.getNameEn())));
+                StoredText.of(id == null ? "audit.documentKind.create" : "audit.documentKind.update",
+                        StoredText.of("audit.name", kind.getNameSv(), kind.getNameEn())));
         return kind;
     }
 
@@ -182,7 +182,7 @@ public class DocumentKindService {
         kind.setPosition(repository.findAllByOrderByPositionAscIdAsc().stream().mapToInt(DocumentKind::getPosition).max().orElse(0) + 1);
         repository.save(kind);
         auditService.record("CREATE", "DOCUMENT_KIND", kind.getUuid(),
-                AuditText.of("audit.documentKind.createForImport", AuditText.of("audit.name", kind.getNameSv(), kind.getNameEn())));
+                StoredText.of("audit.documentKind.createForImport", StoredText.of("audit.name", kind.getNameSv(), kind.getNameEn())));
         return kind;
     }
 
@@ -199,7 +199,7 @@ public class DocumentKindService {
         for (int i = 0; i < ids.size(); i++) {
             byId.get(ids.get(i)).setPosition(i + 1);
         }
-        auditService.record("UPDATE", "DOCUMENT_KIND", null, AuditText.of("audit.documentKind.reorder"));
+        auditService.record("UPDATE", "DOCUMENT_KIND", null, StoredText.of("audit.documentKind.reorder"));
         return ids.stream().map(byId::get).toList();
     }
 
@@ -214,8 +214,8 @@ public class DocumentKindService {
         }
         kind.setRetired(retired);
         auditService.record("UPDATE", "DOCUMENT_KIND", id,
-                AuditText.of(retired ? "audit.documentKind.retire" : "audit.documentKind.unretire",
-                        AuditText.of("audit.name", kind.getNameSv(), kind.getNameEn())));
+                StoredText.of(retired ? "audit.documentKind.retire" : "audit.documentKind.unretire",
+                        StoredText.of("audit.name", kind.getNameSv(), kind.getNameEn())));
         return kind;
     }
 
@@ -242,9 +242,9 @@ public class DocumentKindService {
         into.setAliases(aliases(aliases.stream().filter(Objects::nonNull).toList()));
         repository.delete(from);
         auditService.record("MERGE", "DOCUMENT_KIND", intoId,
-                AuditText.of("audit.documentKind.merge",
-                        AuditText.of("audit.name", from.getNameSv(), from.getNameEn()),
-                        AuditText.of("audit.name", into.getNameSv(), into.getNameEn())));
+                StoredText.of("audit.documentKind.merge",
+                        StoredText.of("audit.name", from.getNameSv(), from.getNameEn()),
+                        StoredText.of("audit.name", into.getNameSv(), into.getNameEn())));
         return into;
     }
 

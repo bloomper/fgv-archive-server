@@ -17,7 +17,7 @@
 package nu.fgv.archive.server.access;
 
 import nu.fgv.archive.server.audit.AuditService;
-import nu.fgv.archive.server.audit.AuditText;
+import nu.fgv.archive.server.util.StoredText;
 import nu.fgv.archive.server.file.ArchiveFile;
 import nu.fgv.archive.server.file.ArchiveFileRepository;
 import nu.fgv.archive.server.file.FileDtos;
@@ -142,13 +142,13 @@ public class AccessRequestService {
             request.setHandledBy(caller.subject());
             request.setHandledByName(caller.name());
             auditService.record("UPDATE", "ACCESS_REQUEST", request.getUuid(),
-                    who == null ? AuditText.of("audit.accessRequest.handle") : AuditText.of("audit.accessRequest.handleFrom", who));
+                    who == null ? StoredText.of("audit.accessRequest.handle") : StoredText.of("audit.accessRequest.handleFrom", who));
         } else if (!handled && request.getHandledAt() != null) {
             request.setHandledAt(null);
             request.setHandledBy(null);
             request.setHandledByName(null);
             auditService.record("UPDATE", "ACCESS_REQUEST", request.getUuid(),
-                    who == null ? AuditText.of("audit.accessRequest.reopen") : AuditText.of("audit.accessRequest.reopenFrom", who));
+                    who == null ? StoredText.of("audit.accessRequest.reopen") : StoredText.of("audit.accessRequest.reopenFrom", who));
         }
         return toDto(request);
     }

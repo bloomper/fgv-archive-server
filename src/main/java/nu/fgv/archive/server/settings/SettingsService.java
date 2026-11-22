@@ -17,7 +17,7 @@
 package nu.fgv.archive.server.settings;
 
 import nu.fgv.archive.server.audit.AuditService;
-import nu.fgv.archive.server.audit.AuditText;
+import nu.fgv.archive.server.util.StoredText;
 import nu.fgv.archive.server.user.Caller;
 import nu.fgv.archive.server.user.CallerService;
 import nu.fgv.archive.server.util.error.BadRequestException;
@@ -110,7 +110,7 @@ public class SettingsService {
         settings.setLastModifiedBy(caller.subject());
         settings.setLastModifiedAt(clock.instant());
         repository.save(settings);
-        auditService.record("UPDATE", "SETTINGS", null, AuditText.of("audit.settings.update"));
+        auditService.record("UPDATE", "SETTINGS", null, StoredText.of("audit.settings.update"));
         return toDto(settings);
     }
 

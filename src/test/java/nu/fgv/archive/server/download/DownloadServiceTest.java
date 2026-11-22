@@ -47,7 +47,7 @@ class DownloadServiceTest {
     private final DownloadLogRepository logRepository = mock(DownloadLogRepository.class);
     private final CallerService callerService = mock(CallerService.class);
     private final TestClock clock = new TestClock(Instant.parse("2026-11-05T10:00:00Z"));
-    private final DownloadService service = new DownloadService(logRepository, null, null, null, null, null, null, callerService, clock);
+    private final DownloadService service = new DownloadService(logRepository, null, null, null, null, null, null, callerService, clock, null);
     private final StoredFile restricted = new StoredFile(1L, uuid(1), Path.of("a.pdf"), Path.of("a.png"), "A.pdf", "application/pdf", true, false);
 
     @Test

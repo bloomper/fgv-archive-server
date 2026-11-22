@@ -105,7 +105,7 @@ public class ArchiveImport {
         }
         return kinds.match(name).map(DocumentKind::getUuid).orElseGet(() -> {
             if (batch.createMissingKinds()) {
-                batch.warn("Ny dokumentsort: " + name.strip());
+                batch.warn("import.warning.newDocumentKind", name.strip());
                 return kinds.createForImport(name.strip()).getUuid();
             }
             throw new BadRequestException("error.kind.unknown", name,
@@ -169,7 +169,7 @@ public class ArchiveImport {
             final UUID current = existing != null ? existing : materials.arrangementOfNumber(record.numberId());
 
             if (current != null && existing == null) {
-                batch.warn("Numret har redan ett arrangemang; versionerna läggs till i det");
+                batch.warn("import.warning.arrangementExists");
             }
             return current == null ? materials.createArrangement(input).id() : materials.updateArrangement(current, input).id();
         }

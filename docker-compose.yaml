@@ -7,11 +7,11 @@ services:
     command: --log-error=/var/log/mysql/error.log
     environment:
       MYSQL_HOST: localhost
-      MYSQL_DATABASE: ${FGV_ARCHIVE_MYSQL_DATABASE}
-      MYSQL_ROOT_USER: ${FGV_ARCHIVE_MYSQL_ROOT_USER}
-      MYSQL_ROOT_PASSWORD_FILE: /run/secrets/FGV_ARCHIVE_MYSQL_ROOT_PASSWORD
-      MYSQL_USER: ${FGV_ARCHIVE_MYSQL_USER}
-      MYSQL_PASSWORD_FILE: /run/secrets/FGV_ARCHIVE_MYSQL_USER_PASSWORD
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_ROOT_USER: ${MYSQL_ROOT_USER}
+      MYSQL_ROOT_PASSWORD_FILE: /run/secrets/MYSQL_ROOT_PASSWORD
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD_FILE: /run/secrets/MYSQL_USER_PASSWORD
     healthcheck:
       test: [ "CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "--silent" ]
       interval: 10s
@@ -21,11 +21,11 @@ services:
     ports:
       - "127.0.0.1:3311:3306"
     volumes:
-      - fgv_archive_mysql_data:/var/lib/mysql
-      - fgv_archive_mysql_log:/var/log/mysql
+      - ./.docker/mysql/data:/var/lib/mysql
+      - ./.docker/mysql/log:/var/log/mysql
     secrets:
-      - FGV_ARCHIVE_MYSQL_ROOT_PASSWORD
-      - FGV_ARCHIVE_MYSQL_USER_PASSWORD
+      - MYSQL_ROOT_PASSWORD
+      - MYSQL_USER_PASSWORD
 
   # The API, with the worker that reads files and renders previews running inside it (the local profile)
   archive-api:
@@ -33,8 +33,8 @@ services:
     #platform: linux/arm64
     environment:
       SPRING_PROFILES_ACTIVE: local
-      SPRING_DATASOURCE_URL: jdbc:mysql://archive-mysql/${FGV_ARCHIVE_MYSQL_DATABASE}
-      SPRING_DATASOURCE_USERNAME: ${FGV_ARCHIVE_MYSQL_USER}
+      SPRING_DATASOURCE_URL: jdbc:mysql://archive-mysql/${MYSQL_DATABASE}
+      SPRING_DATASOURCE_USERNAME: ${MYSQL_USER}
       SERVER_PORT: 8080
       MANAGEMENT_SERVER_PORT: 9000
       LOGGING_FILE_PATH: /data/log_data
@@ -47,6 +47,7 @@ services:
       API_WEB_URL: ${API_WEB_URL}
       API_KEYCLOAK_REALM: ${API_KEYCLOAK_REALM}
       API_STORAGE_ROOT: /data/archive
+      API_IMPORTS_ROOT: /data/imports
       API_SPEXIPEDIA_GRAPHQL_URL: http://spexipedia-api:8080/api/graphql
       SPEXIPEDIA_WEB_URL: ${SPEXIPEDIA_WEB_URL:-https://spexipedia.fgv.local.nu:8443}
       API_IMPORT_SAMPLE_DATA: ${API_IMPORT_SAMPLE_DATA:-false}
@@ -64,35 +65,16 @@ services:
       archive-mysql:
         condition: service_healthy
     volumes:
-      - fgv_archive_api_log:/data/log_data
-      - ./data/archive:/data/archive
+      - ${API_DATA:-./.docker/api}/log_data:/data/log_data
+      - ${API_DATA:-./.docker/api}/archive:/data/archive
+      - ${API_DATA:-./.docker/api}/imports:/data/imports
     networks:
       - default
       - fgv
     secrets:
-      - source: FGV_ARCHIVE_MYSQL_USER_PASSWORD
+      - source: MYSQL_USER_PASSWORD
         target: MYSQL_API_USER_PASSWORD
       - API_KEYCLOAK_SERVICE_CLIENT_SECRET
-
-volumes:
-  fgv_archive_mysql_data:
-    driver: local
-    driver_opts:
-      type: none
-      device: .docker/fgv-archive-mysql/data
-      o: bind
-  fgv_archive_mysql_log:
-    driver: local
-    driver_opts:
-      type: none
-      device: .docker/fgv-archive-mysql/log
-      o: bind
-  fgv_archive_api_log:
-    driver: local
-    driver_opts:
-      type: none
-      device: .docker/fgv-archive-api/log_data
-      o: bind
 
 networks:
   fgv:
@@ -100,9 +82,9 @@ networks:
     external: true
 
 secrets:
-  FGV_ARCHIVE_MYSQL_ROOT_PASSWORD:
-    file: .docker/secrets/FGV_ARCHIVE_MYSQL_ROOT_PASSWORD
-  FGV_ARCHIVE_MYSQL_USER_PASSWORD:
-    file: .docker/secrets/FGV_ARCHIVE_MYSQL_USER_PASSWORD
+  MYSQL_ROOT_PASSWORD:
+    file: .docker/secrets/MYSQL_ROOT_PASSWORD
+  MYSQL_USER_PASSWORD:
+    file: .docker/secrets/MYSQL_USER_PASSWORD
   API_KEYCLOAK_SERVICE_CLIENT_SECRET:
     file: .docker/secrets/API_KEYCLOAK_SERVICE_CLIENT_SECRET

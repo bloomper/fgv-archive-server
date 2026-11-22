@@ -16,6 +16,8 @@
 
 package nu.fgv.archive.server.spex;
 
+import nu.fgv.archive.server.util.StoredText;
+import nu.fgv.archive.server.util.TextException;
 import org.jspecify.annotations.Nullable;
 import org.springframework.graphql.client.ClientGraphQlResponse;
 import org.springframework.graphql.client.HttpSyncGraphQlClient;
@@ -67,10 +69,10 @@ public class SpexipediaClient {
         try {
             response = client.document(CHANGES).variable("after", after).variable("first", PAGE_SIZE).executeSync();
         } catch (final RuntimeException e) {
-            throw new SpexipediaCallException("Spexipedia could not be reached: " + e.getMessage(), e);
+            throw new SpexipediaCallException(StoredText.of("spexipedia.unreachable", String.valueOf(e.getMessage())), e);
         }
         if (!response.isValid() || !response.getErrors().isEmpty()) {
-            throw new SpexipediaCallException("Spexipedia answered with errors: " + response.getErrors(), null);
+            throw new SpexipediaCallException(StoredText.of("spexipedia.answeredWithErrors", response.getErrors()), null);
         }
         return Objects.requireNonNull(response.field("baseDataChanges").toEntity(FeedChange.Page.class));
     }
@@ -78,10 +80,14 @@ public class SpexipediaClient {
     /**
      * Spexipedia could not be reached or answered with errors.
      */
-    public static class SpexipediaCallException extends RuntimeException {
+    public static class SpexipediaCallException extends TextException {
+
+        public SpexipediaCallException(final StoredText text, final @Nullable Throwable cause) {
+            super(text, cause);
+        }
 
         public SpexipediaCallException(final String message, final @Nullable Throwable cause) {
-            super(message, cause);
+            this(StoredText.of("text.unexpected", message), cause);
         }
     }
 }

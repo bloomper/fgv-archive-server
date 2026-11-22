@@ -17,6 +17,7 @@
 package nu.fgv.archive.server.share;
 
 import nu.fgv.archive.server.audit.AuditService;
+import nu.fgv.archive.server.util.StoredText;
 import nu.fgv.archive.server.download.DownloadLogRepository;
 import nu.fgv.archive.server.file.ArchiveFile;
 import nu.fgv.archive.server.file.ArchiveFileRepository;
@@ -244,7 +245,7 @@ public class ShareLinkService {
         link.setCreatedAt(now);
         link.setExpiresAt(expiry(input.months() == null ? DEFAULT_MONTHS : input.months()));
         repository.save(link);
-        auditService.record("SHARE", "SHARE_LINK", link.getUuid(), "Skapade delningslänken " + name);
+        auditService.record("SHARE", "SHARE_LINK", link.getUuid(), StoredText.of("audit.shareLink.create", name));
         return new CreatedShareLink(toDto(link), token);
     }
 
@@ -260,8 +261,7 @@ public class ShareLinkService {
             throw new BadRequestException("error.shareLink.name");
         }
         if (!stripped.equals(link.getName())) {
-            auditService.record("UPDATE", "SHARE_LINK", link.getUuid(),
-                    "Döpte om delningslänken " + link.getName() + " till " + stripped);
+            auditService.record("UPDATE", "SHARE_LINK", link.getUuid(), StoredText.of("audit.shareLink.rename", link.getName(), stripped));
             link.setName(stripped);
         }
         return toDto(link);
@@ -272,7 +272,7 @@ public class ShareLinkService {
         final ShareLink link = owned(id);
 
         link.setExpiresAt(expiry(months));
-        auditService.record("UPDATE", "SHARE_LINK", link.getUuid(), "Förlängde delningslänken " + link.getName());
+        auditService.record("UPDATE", "SHARE_LINK", link.getUuid(), StoredText.of("audit.shareLink.extend", link.getName()));
         return toDto(link);
     }
 
@@ -283,7 +283,7 @@ public class ShareLinkService {
         if (link.getRevokedAt() == null) {
             link.setRevokedAt(clock.instant());
             link.setRevokedByName(callerService.current().name());
-            auditService.record("REVOKE", "SHARE_LINK", link.getUuid(), "Återkallade delningslänken " + link.getName());
+            auditService.record("REVOKE", "SHARE_LINK", link.getUuid(), StoredText.of("audit.shareLink.revoke", link.getName()));
         }
         return toDto(link);
     }

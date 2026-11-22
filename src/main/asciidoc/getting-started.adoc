@@ -73,15 +73,15 @@ $ ./scripts/configure-keycloak.sh    # the Keycloak client secrets, read from th
 
 Both keep the values that are already set, so they can be run again, and tell git to leave your values alone so they are never committed (``git update-index --skip-worktree .docker/secrets/*``).
 The database passwords take effect only when the databases are created, i.e. with empty data folders.
-To set a value by hand, write it without a trailing newline, e.g. ``printf '%s' 'verysecret' > .docker/secrets/FGV_ARCHIVE_MYSQL_ROOT_PASSWORD``.
+To set a value by hand, write it without a trailing newline, e.g. ``printf '%s' 'verysecret' > .docker/secrets/MYSQL_ROOT_PASSWORD``.
 
 To see a changed placeholder after a pull, undo it with ``git update-index --no-skip-worktree .docker/secrets/*``.
 
 |===
 |Parameter|Purpose|Comment|Example value
 
-|FGV_ARCHIVE_MYSQL_ROOT_PASSWORD|The password for the root user of Spexarkiv Server's database||verysecret
-|FGV_ARCHIVE_MYSQL_USER_PASSWORD|The password for the user of Spexarkiv Server's database||secret
+|MYSQL_ROOT_PASSWORD|The password for the root user of Spexarkiv Server's database||verysecret
+|MYSQL_USER_PASSWORD|The password for the user of Spexarkiv Server's database||secret
 |API_KEYCLOAK_SERVICE_CLIENT_SECRET|The client secret of ``fgv-archive-service``, with which Spexarkiv Server reads Spexipedia's change feed and the editors' email addresses from Keycloak|Must match the value in ``realm/fgv.json`` in fgv-keycloak, search for ``fgv-archive-service`` and pick the value for ``secret`` in the same section|
 
 |===
@@ -91,9 +91,9 @@ There are also configuration parameters in ``.env`` that can be tweaked if so de
 |===
 |Parameter|Purpose|Default value
 
-|FGV_ARCHIVE_MYSQL_DATABASE|The name of the database used by Spexarkiv Server|archive
-|FGV_ARCHIVE_MYSQL_ROOT_USER|The root user of Spexarkiv Server's database|root
-|FGV_ARCHIVE_MYSQL_USER|The user of Spexarkiv Server's database|archive
+|MYSQL_DATABASE|The name of the database used by Spexarkiv Server|archive
+|MYSQL_ROOT_USER|The root user of Spexarkiv Server's database|root
+|MYSQL_USER|The user of Spexarkiv Server's database|archive
 |API_WEB_URL|The web's address, for the links in the emails about access requests|http://localhost:3005
 |API_KEYCLOAK_REALM|The Keycloak realm of Spexarkiv Server|fgv
 |API_KEYCLOAK_CLIENT_CLIENT_ID|The Keycloak client id of Spexarkiv Web|fgv-archive
@@ -141,7 +141,7 @@ When the ``archive-api`` container isn't running, Caddy forwards ``https://api.a
 [source,bash]
 ----
 $ docker compose up -d archive-mysql
-$ MYSQL_API_USER_PASSWORD=<FGV_ARCHIVE_MYSQL_USER_PASSWORD> \
+$ MYSQL_API_USER_PASSWORD=<MYSQL_USER_PASSWORD> \
   API_KEYCLOAK_SERVICE_CLIENT_SECRET=<…> \
   ./gradlew bootRun --args='--spring.profiles.active=local'
 ----
@@ -155,11 +155,22 @@ It finds fgv-infra-deploy in ``../../fgv-infra-deploy``, or where ``INFRA_DEPLOY
 
 The same setup for staging and production is in https://github.com/bloomper/fgv-archive-deploy[fgv-archive-deploy] and fgv-infra-deploy.
 
+[[local_folders]]
+=== Local folders
+
+Docker Compose keeps everything on the host, under ``.docker``, one folder per service:
+
+* ``.docker/mysql``: the database and its error log
+* ``.docker/api``: the API's logs, files (``archive``) and imports
+* ``.docker/secrets``: the secrets, see <<configuration>>
+
+An API started from the IDE or with ``./gradlew bootRun`` keeps its files in ``./data`` instead.
+
 [[storage]]
 == Storage
 
 The archive's metadata, the files' text and the copies of the spex live in MySQL.
-The files live in the storage folder (``./data/archive``, ``API_STORAGE_ROOT``), named by id, never in the database:
+The files live in the storage folder (``API_STORAGE_ROOT``; ``archive`` in the API's folder, see <<local_folders>>), named by id, never in the database:
 
 |===
 |Folder|Content|Backed up

@@ -466,7 +466,7 @@ class ArchiveIntegrationTest extends AbstractIntegrationTest {
                 .path("shareLinkRename.name").entity(String.class).isEqualTo("Ali Baba 2028, styrgruppen");
         expectError(graphQl(EDITOR).document("mutation($id: ID!) { shareLinkRename(id: $id, name: \" \") { name } }")
                 .variable("id", linkId).execute(), "BAD_REQUEST");
-        assertThat(jdbcClient.sql("SELECT COUNT(*) FROM audit_entry WHERE entity_type = 'SHARE_LINK' AND summary LIKE 'Döpte om%'")
+        assertThat(jdbcClient.sql("SELECT COUNT(*) FROM audit_entry WHERE entity_type = 'SHARE_LINK' AND summary LIKE '%audit.shareLink.rename%'")
                 .query(Long.class).single()).isEqualTo(1);
     }
 

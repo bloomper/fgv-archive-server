@@ -16,6 +16,7 @@
 
 package nu.fgv.archive.server.file;
 
+import nu.fgv.archive.server.util.StoredText;
 import nu.fgv.archive.server.util.Uuids;
 import lombok.extern.slf4j.Slf4j;
 import nu.fgv.archive.server.audit.AuditService;
@@ -303,7 +304,7 @@ public class FileService {
         storage.store(upload, target);
         returnOnRollback(target, upload);
         uploadService.release(input.uploadId());
-        auditService.record("CREATE", "FILE", file.getUuid(), "Laddade upp %s till %s".formatted(file.getTitle(), version.getLabel()));
+        auditService.record("CREATE", "FILE", file.getUuid(), StoredText.of("audit.file.upload", file.getTitle(), version.getLabel()));
         return FileDtos.toDto(file, true, true);
     }
 
@@ -366,7 +367,7 @@ public class FileService {
 
         storage.store(staged, target);
         deleteOnRollback(target);
-        auditService.record("CREATE", "FILE", file.getUuid(), "Importerade %s till %s".formatted(file.getTitle(), version.getLabel()));
+        auditService.record("CREATE", "FILE", file.getUuid(), StoredText.of("audit.file.import", file.getTitle(), version.getLabel()));
         return file.getUuid();
     }
 
@@ -401,7 +402,7 @@ public class FileService {
         file.setComment(comment(input.comment()));
         setPart(file, role(input.roleId()), input.instrumentIds() == null ? List.of() : instruments(input.instrumentIds()), input.desk(),
                 input.transposition());
-        auditService.record("UPDATE", "FILE", file.getUuid(), "Ändrade filen " + file.getTitle());
+        auditService.record("UPDATE", "FILE", file.getUuid(), StoredText.of("audit.file.update", file.getTitle()));
         return FileDtos.toDto(file, true, true);
     }
 
@@ -430,7 +431,7 @@ public class FileService {
         storage.store(upload, staged);
         uploadService.release(uploadId);
         swapAfterCommit(staged, target, old, preview, upload);
-        auditService.record("UPDATE", "FILE", file.getUuid(), "Bytte innehållet i filen " + file.getTitle());
+        auditService.record("UPDATE", "FILE", file.getUuid(), StoredText.of("audit.file.replace", file.getTitle()));
         return FileDtos.toDto(file, true, true);
     }
 
@@ -452,7 +453,7 @@ public class FileService {
         for (int i = 0; i < ordered.size(); i++) {
             ordered.get(i).setPosition(i + 1);
         }
-        auditService.record("UPDATE", "VERSION", version.getUuid(), "Ändrade ordningen på filerna i " + version.getLabel());
+        auditService.record("UPDATE", "VERSION", version.getUuid(), StoredText.of("audit.version.reorderFiles", version.getLabel()));
         return ordered.stream().map(file -> FileDtos.toDto(file, true, true)).toList();
     }
 
@@ -463,7 +464,7 @@ public class FileService {
         final ArchiveFile file = file(id);
 
         deleteAll(List.of(file));
-        auditService.record("DELETE", "FILE", file.getUuid(), "Raderade filen " + file.getTitle());
+        auditService.record("DELETE", "FILE", file.getUuid(), StoredText.of("audit.file.delete", file.getTitle()));
     }
 
     /**

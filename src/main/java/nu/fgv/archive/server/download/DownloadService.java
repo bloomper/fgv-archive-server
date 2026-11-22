@@ -31,8 +31,11 @@ import nu.fgv.archive.server.share.ShareLinkService;
 import nu.fgv.archive.server.spex.SpexService;
 import nu.fgv.archive.server.user.Caller;
 import nu.fgv.archive.server.user.CallerService;
+import nu.fgv.archive.server.util.Locales;
 import nu.fgv.archive.server.util.error.ResourceNotFoundException;
 import org.jspecify.annotations.Nullable;
+import org.springframework.context.MessageSource;
+import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -68,6 +71,7 @@ public class DownloadService {
     /** A file fetched again within this time by the same user or link is not counted or logged again. */
     static final Duration DEDUPLICATE = Duration.ofMinutes(5);
 
+    private final MessageSource messages;
     private final DownloadLogRepository logRepository;
     private final MaterialVersionRepository versionRepository;
     private final SpexNumberRepository numberRepository;
@@ -84,7 +88,8 @@ public class DownloadService {
     public DownloadService(final DownloadLogRepository logRepository, final MaterialVersionRepository versionRepository,
                            final SpexNumberRepository numberRepository, final SpexParts spexParts, final SpexService spexService,
                            final FileService fileService, final ShareLinkService shareLinkService,
-                           final CallerService callerService, final Clock clock) {
+                           final CallerService callerService, final Clock clock, final MessageSource messages) {
+        this.messages = messages;
         this.logRepository = logRepository;
         this.versionRepository = versionRepository;
         this.numberRepository = numberRepository;
@@ -239,9 +244,9 @@ public class DownloadService {
         }
 
         final String spexTitle = Optional.ofNullable(spexService.byIds(List.of(spexId)).get(spexId))
-                .map(spex -> spex.title() + (spex.year() == null ? "" : " " + spex.year())).orElse("Spex");
+                .map(spex -> spex.title() + (spex.year() == null ? "" : " " + spex.year())).orElseGet(() -> text("download.zip.spex"));
 
-        return new ZipPlan(safe(spexTitle + " - stämmor") + ".zip", unique(items), shareLinkId);
+        return new ZipPlan(safe(text("download.zip.parts", spexTitle)) + ".zip", unique(items), shareLinkId);
     }
 
     private ZipPlan zip(final MaterialVersion version, final List<ArchiveFile> files, final @Nullable PartFilter parts,
@@ -257,9 +262,10 @@ public class DownloadService {
 
         final String title = version.getManuscript() != null ? version.getManuscript().getTitle()
                 : numberRepository.findByUuid(Objects.requireNonNull(version.getArrangement()).getNumberId())
-                .map(SpexNumber::getTitle).orElse("Arrangemang");
+                .map(SpexNumber::getTitle).orElseGet(() -> text("download.zip.arrangement"));
+        final String name = title + " - " + version.getLabel();
 
-        return new ZipPlan(safe(title + " - " + version.getLabel() + (parts != null ? " - stämmor" : "")) + ".zip", unique(items), shareLinkId);
+        return new ZipPlan(safe(parts != null ? text("download.zip.parts", name) : name) + ".zip", unique(items), shareLinkId);
     }
 
     /**
@@ -290,5 +296,10 @@ public class DownloadService {
     }
 
     public record SharedFile(StoredFile file, Long shareLinkId) {
+    }
+
+    /** A part of a file name in the language of the request. */
+    private String text(final String code, final Object... args) {
+        return messages.getMessage(code, args, code, Locales.supported(LocaleContextHolder.getLocale()));
     }
 }

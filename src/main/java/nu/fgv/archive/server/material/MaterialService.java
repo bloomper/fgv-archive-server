@@ -16,6 +16,7 @@
 
 package nu.fgv.archive.server.material;
 
+import nu.fgv.archive.server.audit.AuditText;
 import nu.fgv.archive.server.document.DocumentKindService;
 import nu.fgv.archive.server.audit.AuditService;
 import nu.fgv.archive.server.file.FileService;
@@ -477,7 +478,7 @@ public class MaterialService {
 
         version.setManuscript(manuscript);
         manuscript.getVersions().add(versionRepository.save(version));
-        auditService.record("CREATE", "MANUSCRIPT", manuscript.getUuid(), "Skapade manuset " + manuscript.getTitle());
+        auditService.record("CREATE", "MANUSCRIPT", manuscript.getUuid(), AuditText.of("audit.manuscript.create", manuscript.getTitle()));
         return MaterialDtos.toDto(manuscript);
     }
 
@@ -497,7 +498,7 @@ public class MaterialService {
         manuscript.setAuthors(text(input.authors(), MAX_AUTHORS));
         manuscript.setDescription(longText(input.description()));
         applyBook(manuscript, input);
-        auditService.record("UPDATE", "MANUSCRIPT", manuscript.getUuid(), "Ändrade manuset " + manuscript.getTitle());
+        auditService.record("UPDATE", "MANUSCRIPT", manuscript.getUuid(), AuditText.of("audit.manuscript.update", manuscript.getTitle()));
         return MaterialDtos.toDto(manuscript);
     }
 
@@ -560,7 +561,7 @@ public class MaterialService {
             song.setTextOnly(Boolean.TRUE.equals(input.textOnly()));
             manuscript.getSongs().add(song);
         }
-        auditService.record("UPDATE", "MANUSCRIPT", manuscript.getUuid(), "Ändrade sångerna i boken " + manuscript.getTitle());
+        auditService.record("UPDATE", "MANUSCRIPT", manuscript.getUuid(), AuditText.of("audit.manuscript.songs", manuscript.getTitle()));
         return MaterialDtos.toDto(manuscript);
     }
 
@@ -572,7 +573,7 @@ public class MaterialService {
 
         manuscript.setTrashedAt(trashed ? clock.instant() : null);
         auditService.record(trashed ? "TRASH" : "RESTORE", "MANUSCRIPT", manuscript.getUuid(),
-                (trashed ? "Lade manuset %s i papperskorgen" : "Återställde manuset %s").formatted(manuscript.getTitle()));
+                AuditText.of(trashed ? "audit.manuscript.trash" : "audit.manuscript.restore", manuscript.getTitle()));
         return MaterialDtos.toDto(manuscript);
     }
 
@@ -587,7 +588,7 @@ public class MaterialService {
         }
         List.copyOf(manuscript.getVersions()).forEach(this::deleteVersionEntity);
         manuscriptRepository.delete(manuscript);
-        auditService.record("DELETE", "MANUSCRIPT", manuscript.getUuid(), "Raderade manuset " + manuscript.getTitle());
+        auditService.record("DELETE", "MANUSCRIPT", manuscript.getUuid(), AuditText.of("audit.manuscript.delete", manuscript.getTitle()));
     }
 
     @Transactional
@@ -614,7 +615,7 @@ public class MaterialService {
 
         version.setArrangement(arrangement);
         arrangement.getVersions().add(versionRepository.save(version));
-        auditService.record("CREATE", "ARRANGEMENT", arrangement.getUuid(), "Skapade arrangemanget för " + number.getTitle());
+        auditService.record("CREATE", "ARRANGEMENT", arrangement.getUuid(), AuditText.of("audit.arrangement.create", number.getTitle()));
         return MaterialDtos.toDto(arrangement);
     }
 
@@ -625,7 +626,7 @@ public class MaterialService {
         final Arrangement arrangement = arrangementEntity(id);
 
         arrangement.setDescription(longText(input.description()));
-        auditService.record("UPDATE", "ARRANGEMENT", arrangement.getUuid(), "Ändrade arrangemanget för " + numberTitle(arrangement));
+        auditService.record("UPDATE", "ARRANGEMENT", arrangement.getUuid(), AuditText.of("audit.arrangement.update", numberTitle(arrangement)));
         return MaterialDtos.toDto(arrangement);
     }
 
@@ -637,7 +638,7 @@ public class MaterialService {
 
         arrangement.setTrashedAt(trashed ? clock.instant() : null);
         auditService.record(trashed ? "TRASH" : "RESTORE", "ARRANGEMENT", arrangement.getUuid(),
-                (trashed ? "Lade arrangemanget för %s i papperskorgen" : "Återställde arrangemanget för %s").formatted(numberTitle(arrangement)));
+                AuditText.of(trashed ? "audit.arrangement.trash" : "audit.arrangement.restore", numberTitle(arrangement)));
         return MaterialDtos.toDto(arrangement);
     }
 
@@ -652,7 +653,7 @@ public class MaterialService {
         }
         List.copyOf(arrangement.getVersions()).forEach(this::deleteVersionEntity);
         arrangementRepository.delete(arrangement);
-        auditService.record("DELETE", "ARRANGEMENT", arrangement.getUuid(), "Raderade arrangemanget för " + numberTitle(arrangement));
+        auditService.record("DELETE", "ARRANGEMENT", arrangement.getUuid(), AuditText.of("audit.arrangement.delete", numberTitle(arrangement)));
     }
 
     @Transactional
@@ -671,7 +672,7 @@ public class MaterialService {
         apply(version, input);
         versionRepository.save(version);
         (manuscript != null ? manuscript.getVersions() : Objects.requireNonNull(arrangement).getVersions()).add(version);
-        auditService.record("CREATE", "VERSION", version.getUuid(), "Skapade versionen %s av %s".formatted(version.getLabel(), parentTitle(version)));
+        auditService.record("CREATE", "VERSION", version.getUuid(), AuditText.of("audit.version.create", version.getLabel(), parentTitle(version)));
         return MaterialDtos.toDto(version, caller);
     }
 
@@ -684,7 +685,7 @@ public class MaterialService {
         final MaterialVersion version = versionEntity(id);
 
         apply(version, input);
-        auditService.record("UPDATE", "VERSION", version.getUuid(), "Ändrade versionen %s av %s".formatted(version.getLabel(), parentTitle(version)));
+        auditService.record("UPDATE", "VERSION", version.getUuid(), AuditText.of("audit.version.update", version.getLabel(), parentTitle(version)));
         return MaterialDtos.toDto(version, caller);
     }
 
@@ -711,7 +712,7 @@ public class MaterialService {
         source.getInstrumentation().forEach(entry ->
                 copy.getInstrumentation().add(new InstrumentationEntry(entry.getInstrument(), entry.getCount(), entry.getPosition())));
         versionRepository.save(copy);
-        auditService.record("CREATE", "VERSION", copy.getUuid(), "Kopierade versionen %s av %s".formatted(source.getLabel(), parentTitle(source)));
+        auditService.record("CREATE", "VERSION", copy.getUuid(), AuditText.of("audit.version.copy", source.getLabel(), parentTitle(source)));
         return MaterialDtos.toDto(copy, caller);
     }
 
@@ -727,7 +728,7 @@ public class MaterialService {
             version.setPublished(published);
             version.setPublishedAt(published ? clock.instant() : null);
             auditService.record(published ? "PUBLISH" : "UNPUBLISH", "VERSION", version.getUuid(),
-                    (published ? "Publicerade versionen %s av %s" : "Avpublicerade versionen %s av %s").formatted(version.getLabel(), parentTitle(version)));
+                    AuditText.of(published ? "audit.version.publish" : "audit.version.unpublish", version.getLabel(), parentTitle(version)));
         }
         return MaterialDtos.toDto(version, caller);
     }
@@ -748,7 +749,7 @@ public class MaterialService {
             version.setRecommended(false);
         }
         auditService.record("UPDATE", "VERSION", version.getUuid(),
-                (recommended ? "Rekommenderade versionen %s av %s" : "Slutade rekommendera versionen %s av %s").formatted(version.getLabel(), parentTitle(version)));
+                AuditText.of(recommended ? "audit.version.recommend" : "audit.version.unrecommend", version.getLabel(), parentTitle(version)));
         return MaterialDtos.toDto(version, caller);
     }
 
@@ -765,7 +766,7 @@ public class MaterialService {
             version.setRecommended(false);
         }
         auditService.record(trashed ? "TRASH" : "RESTORE", "VERSION", version.getUuid(),
-                (trashed ? "Lade versionen %s av %s i papperskorgen" : "Återställde versionen %s av %s").formatted(version.getLabel(), parentTitle(version)));
+                AuditText.of(trashed ? "audit.version.trash" : "audit.version.restore", version.getLabel(), parentTitle(version)));
         return MaterialDtos.toDto(version, caller);
     }
 
@@ -779,7 +780,7 @@ public class MaterialService {
             throw new BadRequestException("error.delete.notTrashed");
         }
         deleteVersionEntity(version);
-        auditService.record("DELETE", "VERSION", version.getUuid(), "Raderade versionen %s av %s".formatted(version.getLabel(), parentTitle(version)));
+        auditService.record("DELETE", "VERSION", version.getUuid(), AuditText.of("audit.version.delete", version.getLabel(), parentTitle(version)));
     }
 
     /**
@@ -807,7 +808,7 @@ public class MaterialService {
             deleteVersionEntity(version);
             deleted++;
         }
-        auditService.record("DELETE", "TRASH", null, "Tömde papperskorgen (%d)".formatted(deleted));
+        auditService.record("DELETE", "TRASH", null, AuditText.of("audit.trash.empty", deleted));
         return deleted;
     }
 
@@ -927,13 +928,15 @@ public class MaterialService {
                 .orElseThrow(() -> new BadRequestException("error.number.notFound", version.getArrangement().getNumberId()));
     }
 
-    private String parentTitle(final MaterialVersion version) {
+    /** For the audit log: the manuscript's title or the arrangement's number's. */
+    private Object parentTitle(final MaterialVersion version) {
         return version.getManuscript() != null ? version.getManuscript().getTitle()
                 : numberTitle(Objects.requireNonNull(version.getArrangement()));
     }
 
-    private String numberTitle(final Arrangement arrangement) {
-        return numberRepository.findByUuid(arrangement.getNumberId()).map(SpexNumber::getTitle).orElse("ett nummer");
+    /** For the audit log: the number's title, or that it is unknown. */
+    private Object numberTitle(final Arrangement arrangement) {
+        return numberRepository.findByUuid(arrangement.getNumberId()).<Object>map(SpexNumber::getTitle).orElse(AuditText.of("audit.unknownNumber"));
     }
 
     private Manuscript manuscriptEntity(final UUID id) {
@@ -993,7 +996,7 @@ public class MaterialService {
             }
             List.copyOf(manuscript.getVersions()).forEach(this::deleteVersionEntity);
             manuscriptRepository.delete(manuscript);
-            auditService.record("DELETE", "MANUSCRIPT", id, "Tog bort det importerade dokumentet " + manuscript.getTitle());
+            auditService.record("DELETE", "MANUSCRIPT", id, AuditText.of("audit.manuscript.forgetImported", manuscript.getTitle()));
             return true;
         }
 
@@ -1005,7 +1008,7 @@ public class MaterialService {
             }
             List.copyOf(arrangement.getVersions()).forEach(this::deleteVersionEntity);
             arrangementRepository.delete(arrangement);
-            auditService.record("DELETE", "ARRANGEMENT", id, "Tog bort det importerade arrangemanget för " + numberTitle(arrangement));
+            auditService.record("DELETE", "ARRANGEMENT", id, AuditText.of("audit.arrangement.forgetImported", numberTitle(arrangement)));
             return true;
         }
 
@@ -1015,7 +1018,7 @@ public class MaterialService {
             return false;
         }
         deleteVersionEntity(version);
-        auditService.record("DELETE", "VERSION", id, "Tog bort den importerade versionen " + version.getLabel());
+        auditService.record("DELETE", "VERSION", id, AuditText.of("audit.version.forgetImported", version.getLabel()));
         return true;
     }
 

@@ -18,6 +18,7 @@ package nu.fgv.archive.server.file;
 
 import lombok.extern.slf4j.Slf4j;
 import nu.fgv.archive.server.audit.AuditService;
+import nu.fgv.archive.server.audit.AuditText;
 import nu.fgv.archive.server.file.FileDtos.InstrumentDto;
 import nu.fgv.archive.server.file.FileDtos.InstrumentInput;
 import nu.fgv.archive.server.material.InstrumentationEntry;
@@ -118,7 +119,8 @@ public class InstrumentService {
         repository.findAll().stream().filter(other -> other.getPosition() >= instrument.getPosition())
                 .forEach(other -> other.setPosition(other.getPosition() + 1));
         repository.save(instrument);
-        auditService.record("CREATE", "INSTRUMENT", instrument.getUuid(), "Skapade instrumentet " + instrument.getNameSv());
+        auditService.record("CREATE", "INSTRUMENT", instrument.getUuid(),
+                AuditText.of("audit.instrument.create", AuditText.of("audit.name", instrument.getNameSv(), instrument.getNameEn())));
         return FileDtos.toDto(instrument);
     }
 
@@ -129,7 +131,8 @@ public class InstrumentService {
         final Instrument instrument = instrument(id);
 
         apply(instrument, input);
-        auditService.record("UPDATE", "INSTRUMENT", instrument.getUuid(), "Ändrade instrumentet " + instrument.getNameSv());
+        auditService.record("UPDATE", "INSTRUMENT", instrument.getUuid(),
+                AuditText.of("audit.instrument.update", AuditText.of("audit.name", instrument.getNameSv(), instrument.getNameEn())));
         return FileDtos.toDto(instrument);
     }
 
@@ -146,7 +149,7 @@ public class InstrumentService {
         for (int i = 0; i < ids.size(); i++) {
             byId.get(ids.get(i)).setPosition(i + 1);
         }
-        auditService.record("UPDATE", "INSTRUMENT", null, "Ändrade ordningen på instrumenten");
+        auditService.record("UPDATE", "INSTRUMENT", null, AuditText.of("audit.instrument.reorder"));
         return ids.stream().map(byId::get).map(FileDtos::toDto).toList();
     }
 
@@ -164,7 +167,8 @@ public class InstrumentService {
             throw new ConflictException("error.instrument.inUse", uses);
         }
         repository.delete(instrument);
-        auditService.record("DELETE", "INSTRUMENT", instrument.getUuid(), "Raderade instrumentet " + instrument.getNameSv());
+        auditService.record("DELETE", "INSTRUMENT", instrument.getUuid(),
+                AuditText.of("audit.instrument.delete", AuditText.of("audit.name", instrument.getNameSv(), instrument.getNameEn())));
     }
 
     /**
@@ -220,7 +224,10 @@ public class InstrumentService {
         repository.copyShareLinks(instrument.getId(), into.getId());
         repository.removeShareLinks(instrument.getId());
         repository.delete(instrument);
-        auditService.record("UPDATE", "INSTRUMENT", into.getUuid(), "Slog ihop instrumentet %s med %s".formatted(instrument.getNameSv(), into.getNameSv()));
+        auditService.record("UPDATE", "INSTRUMENT", into.getUuid(),
+                AuditText.of("audit.instrument.merge",
+                        AuditText.of("audit.name", instrument.getNameSv(), instrument.getNameEn()),
+                        AuditText.of("audit.name", into.getNameSv(), into.getNameEn())));
     }
 
     // Spexipedia -------------------------------------------------------------------------------------------------------

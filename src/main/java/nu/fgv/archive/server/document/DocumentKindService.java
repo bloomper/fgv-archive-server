@@ -17,6 +17,7 @@
 package nu.fgv.archive.server.document;
 
 import nu.fgv.archive.server.audit.AuditService;
+import nu.fgv.archive.server.audit.AuditText;
 import nu.fgv.archive.server.user.CallerService;
 import nu.fgv.archive.server.util.error.BadRequestException;
 import nu.fgv.archive.server.util.error.ConflictException;
@@ -162,7 +163,8 @@ public class DocumentKindService {
         }
         repository.save(kind);
         auditService.record(id == null ? "CREATE" : "UPDATE", "DOCUMENT_KIND", kind.getUuid(),
-                (id == null ? "Skapade dokumentsorten " : "Ändrade dokumentsorten ") + kind.getNameSv());
+                AuditText.of(id == null ? "audit.documentKind.create" : "audit.documentKind.update",
+                        AuditText.of("audit.name", kind.getNameSv(), kind.getNameEn())));
         return kind;
     }
 
@@ -179,7 +181,8 @@ public class DocumentKindService {
         kind.setNameEn(kind.getNameSv());
         kind.setPosition(repository.findAllByOrderByPositionAscIdAsc().stream().mapToInt(DocumentKind::getPosition).max().orElse(0) + 1);
         repository.save(kind);
-        auditService.record("CREATE", "DOCUMENT_KIND", kind.getUuid(), "Skapade dokumentsorten " + kind.getNameSv() + " vid import");
+        auditService.record("CREATE", "DOCUMENT_KIND", kind.getUuid(),
+                AuditText.of("audit.documentKind.createForImport", AuditText.of("audit.name", kind.getNameSv(), kind.getNameEn())));
         return kind;
     }
 
@@ -196,7 +199,7 @@ public class DocumentKindService {
         for (int i = 0; i < ids.size(); i++) {
             byId.get(ids.get(i)).setPosition(i + 1);
         }
-        auditService.record("UPDATE", "DOCUMENT_KIND", null, "Ändrade ordningen på dokumentsorterna");
+        auditService.record("UPDATE", "DOCUMENT_KIND", null, AuditText.of("audit.documentKind.reorder"));
         return ids.stream().map(byId::get).toList();
     }
 
@@ -210,7 +213,9 @@ public class DocumentKindService {
             throw new BadRequestException("error.documentKind.last");
         }
         kind.setRetired(retired);
-        auditService.record("UPDATE", "DOCUMENT_KIND", id, (retired ? "Tog ur bruk " : "Tog i bruk ") + "dokumentsorten " + kind.getNameSv());
+        auditService.record("UPDATE", "DOCUMENT_KIND", id,
+                AuditText.of(retired ? "audit.documentKind.retire" : "audit.documentKind.unretire",
+                        AuditText.of("audit.name", kind.getNameSv(), kind.getNameEn())));
         return kind;
     }
 
@@ -236,7 +241,10 @@ public class DocumentKindService {
         aliases.addAll(from.aliasList());
         into.setAliases(aliases(aliases.stream().filter(Objects::nonNull).toList()));
         repository.delete(from);
-        auditService.record("MERGE", "DOCUMENT_KIND", intoId, "Slog ihop dokumentsorten " + from.getNameSv() + " med " + into.getNameSv());
+        auditService.record("MERGE", "DOCUMENT_KIND", intoId,
+                AuditText.of("audit.documentKind.merge",
+                        AuditText.of("audit.name", from.getNameSv(), from.getNameEn()),
+                        AuditText.of("audit.name", into.getNameSv(), into.getNameEn())));
         return into;
     }
 

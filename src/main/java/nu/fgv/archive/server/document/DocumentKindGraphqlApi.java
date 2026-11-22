@@ -16,10 +16,11 @@
 
 package nu.fgv.archive.server.document;
 
+import graphql.schema.DataFetchingEnvironment;
 import java.util.Map;
+import nu.fgv.archive.server.util.Locales;
 import nu.fgv.archive.server.material.MaterialDtos;
 import org.jspecify.annotations.Nullable;
-import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.graphql.data.method.annotation.Argument;
 import org.springframework.graphql.data.method.annotation.MutationMapping;
 import org.springframework.graphql.data.method.annotation.BatchMapping;
@@ -88,8 +89,9 @@ public class DocumentKindGraphqlApi {
     }
 
     @SchemaMapping(typeName = "DocumentKind", field = "name")
-    public String name(final DocumentKind kind) {
-        return Locale.ENGLISH.getLanguage().equals(LocaleContextHolder.getLocale().getLanguage()) ? kind.getNameEn() : kind.getNameSv();
+    public String name(final DocumentKind kind, final DataFetchingEnvironment environment) {
+        // The request's locale; LocaleContextHolder is a thread local not set on the thread that runs the query
+        return Locale.ENGLISH.equals(Locales.supported(environment.getLocale())) ? kind.getNameEn() : kind.getNameSv();
     }
 
     @org.springframework.graphql.data.method.annotation.BatchMapping(typeName = "Manuscript", field = "kind")

@@ -606,6 +606,17 @@ class ArchiveIntegrationTest extends AbstractIntegrationTest {
     }
 
     @Test
+    void aKindIsNamedInTheLanguageOfTheRequestWithOtherLast() {
+        graphQl(EDITOR).mutate().header(HttpHeaders.ACCEPT_LANGUAGE, "sv").build()
+                .document("{ documentKinds { name } }").execute()
+                .path("documentKinds[0].name").entity(String.class).isEqualTo("Manus")
+                .path("documentKinds[-1].name").entity(String.class).isEqualTo("Övrigt");
+        graphQl(EDITOR).document("{ documentKinds { name } }").execute()
+                .path("documentKinds[0].name").entity(String.class).isEqualTo("Manuscript")
+                .path("documentKinds[-1].name").entity(String.class).isEqualTo("Other");
+    }
+
+    @Test
     void aDocumentOfNoSpexIsListedUnderItsKindAndCanBeFiledUnderASpexLater() {
         final String kind = graphQl(EDITOR).document("{ documentKinds { id nameSv } }").execute()
                 .path("documentKinds[?(@.nameSv == 'Spexbok')].id").entityList(String.class).get().getFirst();

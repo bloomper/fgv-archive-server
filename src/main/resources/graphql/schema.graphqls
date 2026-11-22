@@ -73,6 +73,8 @@ type Query {
     spexipediaSync: SpexipediaSyncStatus!
     "LINKS. For Spexipedia: the manuscripts of the spex and the arrangements of the numbers that have a published version. At most 500 ids each."
     spexipediaLinks(spexIds: [ID!]!, numberIds: [ID!]!): SpexipediaLinks!
+    "LINKS. For a section of a spex page in Spexipedia: a document's kind, title and year, and the files of its open version (published, outside the trash, not restricted; the recommended one, else the newest) with signed links to their first-page previews, never the files. Null without an open version."
+    spexipediaDocument(id: ID!): SpexipediaDocument
     "SPEXIFY. For Spexify: the arrangements of the numbers with their open versions (published, outside the trash, not restricted) and those versions' files; arrangements without one are left out. At most 500 ids."
     spexifySheetMusic(numberIds: [ID!]!): [SpexifySheetMusic!]!
 }
@@ -1110,4 +1112,23 @@ type SpexipediaSyncSkipped {
     change: String!
     error: String!
     skippedAt: Instant!
+}
+
+type SpexipediaDocument {
+    id: ID!
+    title: String!
+    "The year it was published, or the version's year."
+    year: String
+    spexId: ID
+    kindNameSv: String!
+    kindNameEn: String!
+    files: [SpexipediaFilePreview!]!
+}
+
+type SpexipediaFilePreview {
+    id: ID!
+    title: String!
+    pages: Int
+    "A signed link to a PNG of the first page, valid for some hours; null without a preview."
+    previewUrl: String
 }

@@ -43,9 +43,19 @@ public record ArchiveProperties(String timeZone,
                                 Worker worker,
                                 Spexipedia spexipedia,
                                 Mail mail,
-                                Data data) {
+                                Data data,
+                                Media media) {
 
     public record Keycloak(String url, String realm, String serviceClientId, String serviceClientSecret) {
+    }
+
+    /**
+     * Signed links to first-page previews, which Spexipedia's spex pages show without a token.
+     *
+     * @param signingKey   the key the links are signed with; links are not offered without one
+     * @param linkLifetime how long a link works
+     */
+    public record Media(String signingKey, java.time.Duration linkLifetime) {
     }
 
     public record Security(List<String> authorizedParties) {

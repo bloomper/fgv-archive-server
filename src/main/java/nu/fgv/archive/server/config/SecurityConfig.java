@@ -117,6 +117,8 @@ public class SecurityConfig {
                                 .requestMatchers(HttpMethod.GET, "/docs/**").permitAll()
                                 // Share links; ShareLinkService checks the token
                                 .requestMatchers(HttpMethod.GET, "/api/share/**").permitAll()
+                                // Signed links to previews, for Spexipedia's spex pages: the signature is the access
+                                .requestMatchers(HttpMethod.GET, "/media/**").permitAll()
                                 .requestMatchers(HttpMethod.POST, "/api/graphql").permitAll()
                                 .requestMatchers(HttpMethod.GET, "/api/graphql").permitAll()
                                 .anyRequest().authenticated()

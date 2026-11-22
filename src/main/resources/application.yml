@@ -139,6 +139,10 @@ archive:
   worker:
     # Extracts text and renders previews of new files; only in archive-worker, or locally in the API
     enabled: ${API_WORKER_ENABLED:false}
+  media:
+    # Signs the links to first-page previews that Spexipedia's spex pages show (spexipediaDocument)
+    signing-key: ${API_MEDIA_SIGNING_KEY:}
+    link-lifetime: 6h
   spexipedia:
     graphql-url: ${API_SPEXIPEDIA_GRAPHQL_URL:https://api.spexipedia.fgv.local.nu:8443/api/graphql}
     web-url: ${SPEXIPEDIA_WEB_URL:}
@@ -174,6 +178,9 @@ management:
     port: 9007
 
 archive:
+  media:
+    # A key for development only; every other environment sets API_MEDIA_SIGNING_KEY
+    signing-key: ${API_MEDIA_SIGNING_KEY:archive-development-signing-key}
   keycloak:
     url: https://auth.fgv.local.nu:8443/auth
   worker:

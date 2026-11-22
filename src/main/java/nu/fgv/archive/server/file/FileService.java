@@ -200,6 +200,18 @@ public class FileService {
     }
 
     /**
+     * A file behind a signed link to its preview (PreviewLinkSigner): only a file of an open version, as services
+     * see them.
+     */
+    @Transactional(readOnly = true)
+    public StoredFile linkedPreview(final UUID id) {
+        return repository.findByUuid(id)
+                .filter(found -> MaterialDtos.openToServices(found.getVersion()))
+                .map(this::stored)
+                .orElseThrow(() -> new ResourceNotFoundException("error.file.notFound", id));
+    }
+
+    /**
      * A file the caller may open, for downloads: not found when the caller does not see it, forbidden when it is
      * restricted and the caller is not an editor.
      */

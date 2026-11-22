@@ -155,11 +155,22 @@ It finds fgv-infra-deploy in ``../../fgv-infra-deploy``, or where ``INFRA_DEPLOY
 
 The same setup for staging and production is in https://github.com/bloomper/fgv-archive-deploy[fgv-archive-deploy] and fgv-infra-deploy.
 
+[[local_folders]]
+=== Local folders
+
+Docker Compose keeps everything on the host, under ``.docker``, one folder per service:
+
+* ``.docker/mysql``: the database and its error log
+* ``.docker/api``: the API's logs, files (``archive``) and imports
+* ``.docker/secrets``: the secrets, see <<configuration>>
+
+An API started from the IDE or with ``./gradlew bootRun`` keeps its files in ``./data`` instead.
+
 [[storage]]
 == Storage
 
 The archive's metadata, the files' text and the copies of the spex live in MySQL.
-The files live in the storage folder (``./data/archive``, ``API_STORAGE_ROOT``), named by id, never in the database:
+The files live in the storage folder (``API_STORAGE_ROOT``; ``archive`` in the API's folder, see <<local_folders>>), named by id, never in the database:
 
 |===
 |Folder|Content|Backed up

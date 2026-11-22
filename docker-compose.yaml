@@ -21,8 +21,8 @@ services:
     ports:
       - "127.0.0.1:3311:3306"
     volumes:
-      - fgv_archive_mysql_data:/var/lib/mysql
-      - fgv_archive_mysql_log:/var/log/mysql
+      - ./.docker/mysql/data:/var/lib/mysql
+      - ./.docker/mysql/log:/var/log/mysql
     secrets:
       - FGV_ARCHIVE_MYSQL_ROOT_PASSWORD
       - FGV_ARCHIVE_MYSQL_USER_PASSWORD
@@ -47,6 +47,7 @@ services:
       API_WEB_URL: ${API_WEB_URL}
       API_KEYCLOAK_REALM: ${API_KEYCLOAK_REALM}
       API_STORAGE_ROOT: /data/archive
+      API_IMPORTS_ROOT: /data/imports
       API_SPEXIPEDIA_GRAPHQL_URL: http://spexipedia-api:8080/api/graphql
       SPEXIPEDIA_WEB_URL: ${SPEXIPEDIA_WEB_URL:-https://spexipedia.fgv.local.nu:8443}
       API_IMPORT_SAMPLE_DATA: ${API_IMPORT_SAMPLE_DATA:-false}
@@ -64,8 +65,9 @@ services:
       archive-mysql:
         condition: service_healthy
     volumes:
-      - fgv_archive_api_log:/data/log_data
-      - ./data/archive:/data/archive
+      - ${API_DATA:-./.docker/api}/log_data:/data/log_data
+      - ${API_DATA:-./.docker/api}/archive:/data/archive
+      - ${API_DATA:-./.docker/api}/imports:/data/imports
     networks:
       - default
       - fgv
@@ -73,26 +75,6 @@ services:
       - source: FGV_ARCHIVE_MYSQL_USER_PASSWORD
         target: MYSQL_API_USER_PASSWORD
       - API_KEYCLOAK_SERVICE_CLIENT_SECRET
-
-volumes:
-  fgv_archive_mysql_data:
-    driver: local
-    driver_opts:
-      type: none
-      device: .docker/fgv-archive-mysql/data
-      o: bind
-  fgv_archive_mysql_log:
-    driver: local
-    driver_opts:
-      type: none
-      device: .docker/fgv-archive-mysql/log
-      o: bind
-  fgv_archive_api_log:
-    driver: local
-    driver_opts:
-      type: none
-      device: .docker/fgv-archive-api/log_data
-      o: bind
 
 networks:
   fgv:

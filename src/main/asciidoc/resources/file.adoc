@@ -33,6 +33,15 @@ A PNG of a PDF's first page, or of an image, 600 pixels wide, made by the worker
 
 operation::file-preview-get[snippets='security,path-parameters,request-headers,http-request']
 
+[[preview-signed]]
+=== Through a signed link
+
+For Spexipedia, which shows a document's first pages to users with access to Spexarkivet: a link that
+`spexipediaDocument` signs (secret `API_MEDIA_SIGNING_KEY`) and that works without a token for a few hours, for files of
+open versions only. A wrong or expired link is `404 Not Found`.
+
+operation::file-preview-signed-get[snippets='path-parameters,http-request']
+
 [[zips]]
 == Zips
 

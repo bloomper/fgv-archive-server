@@ -205,7 +205,8 @@ public class SearchService {
     }
 
     public record SearchResultDto(List<SpexDto> spex, List<ManuscriptDto> manuscripts, List<NumberDto> numbers,
-                                  List<ArrangementDto> arrangements, List<VersionDto> versions, List<TextHitDto> textHits) {
+                                  List<ArrangementDto> arrangements, List<VersionDto> versions,
+                                  List<TextHitDto> textHits) {
     }
 
     public record TextHitDto(FileDto file, VersionDto version, @Nullable Integer page, String snippet) {

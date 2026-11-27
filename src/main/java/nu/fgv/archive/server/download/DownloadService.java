@@ -68,7 +68,9 @@ import java.util.function.Predicate;
 @Service
 public class DownloadService {
 
-    /** A file fetched again within this time by the same user or link is not counted or logged again. */
+    /**
+     * A file fetched again within this time by the same user or link is not counted or logged again.
+     */
     static final Duration DEDUPLICATE = Duration.ofMinutes(5);
 
     private final MessageSource messages;
@@ -81,7 +83,9 @@ public class DownloadService {
     private final ShareLinkService shareLinkService;
     private final CallerService callerService;
     private final Clock clock;
-    /** When each user or link last downloaded each file, for {@link #DEDUPLICATE}; per API instance. */
+    /**
+     * When each user or link last downloaded each file, for {@link #DEDUPLICATE}; per API instance.
+     */
     private final Map<String, Instant> recent = new ConcurrentHashMap<>();
 
     @SuppressWarnings("java:S107")
@@ -298,7 +302,9 @@ public class DownloadService {
     public record SharedFile(StoredFile file, Long shareLinkId) {
     }
 
-    /** A part of a file name in the language of the request. */
+    /**
+     * A part of a file name in the language of the request.
+     */
     private String text(final String code, final Object... args) {
         return messages.getMessage(code, args, code, Locales.supported(LocaleContextHolder.getLocale()));
     }

@@ -47,30 +47,30 @@ class SampleDataImporterIntegrationTest extends AbstractIntegrationTest {
         SPEXIPEDIA.resetAll();
         SPEXIPEDIA.stubFor(post(urlEqualTo("/api/graphql")).withRequestBody(containing("baseDataChanges"))
                 .willReturn(aResponse().withHeader("Content-Type", "application/json").withBody("""
-                        {"data": {"baseDataChanges": {"cursor": "9", "hasMore": false, "changes": [
-                          {"sequence": "1", "kind": "SPEX", "id": "00000000-0000-7000-8000-000000000002", "change": "UPSERT", "mergedIntoId": null,
-                           "spex": {"id": "00000000-0000-7000-8000-000000000002", "year": "2020", "title": "Ali Baba", "categoryId": null, "parentId": null, "retired": false}},
-                          {"sequence": "2", "kind": "SPEX", "id": "00000000-0000-7000-8000-000000000001", "change": "UPSERT", "mergedIntoId": null,
-                           "spex": {"id": "00000000-0000-7000-8000-000000000001", "year": "2024", "title": "Cleopatra", "categoryId": null, "parentId": null, "retired": false}},
-                  {"sequence": "3", "kind": "NUMBER", "id": "00000000-0000-7000-8000-0000000000e0", "change": "UPSERT", "mergedIntoId": null,
-                   "number": {"id": "00000000-0000-7000-8000-0000000000e0", "spexId": "00000000-0000-7000-8000-000000000001", "act": 1, "position": 1,
-                              "title": "Nummer 1", "originalTitle": null, "originalArtist": null, "retired": false}},
-                  {"sequence": "4", "kind": "NUMBER", "id": "00000000-0000-7000-8000-0000000000e1", "change": "UPSERT", "mergedIntoId": null,
-                   "number": {"id": "00000000-0000-7000-8000-0000000000e1", "spexId": "00000000-0000-7000-8000-000000000001", "act": 1, "position": 2,
-                              "title": "Nummer 2", "originalTitle": null, "originalArtist": null, "retired": false}},
-                  {"sequence": "5", "kind": "NUMBER", "id": "00000000-0000-7000-8000-0000000000e2", "change": "UPSERT", "mergedIntoId": null,
-                   "number": {"id": "00000000-0000-7000-8000-0000000000e2", "spexId": "00000000-0000-7000-8000-000000000001", "act": 1, "position": 3,
-                              "title": "Nummer 3", "originalTitle": null, "originalArtist": null, "retired": false}},
-                  {"sequence": "6", "kind": "NUMBER", "id": "00000000-0000-7000-8000-0000000000e3", "change": "UPSERT", "mergedIntoId": null,
-                   "number": {"id": "00000000-0000-7000-8000-0000000000e3", "spexId": "00000000-0000-7000-8000-000000000001", "act": 1, "position": 4,
-                              "title": "Nummer 4", "originalTitle": null, "originalArtist": null, "retired": false}},
-                  {"sequence": "7", "kind": "NUMBER", "id": "00000000-0000-7000-8000-0000000000e4", "change": "UPSERT", "mergedIntoId": null,
-                   "number": {"id": "00000000-0000-7000-8000-0000000000e4", "spexId": "00000000-0000-7000-8000-000000000001", "act": 1, "position": 5,
-                              "title": "Nummer 5", "originalTitle": null, "originalArtist": null, "retired": false}},
-                  {"sequence": "8", "kind": "NUMBER", "id": "00000000-0000-7000-8000-0000000000e5", "change": "UPSERT", "mergedIntoId": null,
-                   "number": {"id": "00000000-0000-7000-8000-0000000000e5", "spexId": "00000000-0000-7000-8000-000000000001", "act": 1, "position": 6,
-                              "title": "Nummer 6", "originalTitle": null, "originalArtist": null, "retired": false}}
-                        ]}}}""")));
+                              {"data": {"baseDataChanges": {"cursor": "9", "hasMore": false, "changes": [
+                                {"sequence": "1", "kind": "SPEX", "id": "00000000-0000-7000-8000-000000000002", "change": "UPSERT", "mergedIntoId": null,
+                                 "spex": {"id": "00000000-0000-7000-8000-000000000002", "year": "2020", "title": "Ali Baba", "categoryId": null, "parentId": null, "retired": false}},
+                                {"sequence": "2", "kind": "SPEX", "id": "00000000-0000-7000-8000-000000000001", "change": "UPSERT", "mergedIntoId": null,
+                                 "spex": {"id": "00000000-0000-7000-8000-000000000001", "year": "2024", "title": "Cleopatra", "categoryId": null, "parentId": null, "retired": false}},
+                        {"sequence": "3", "kind": "NUMBER", "id": "00000000-0000-7000-8000-0000000000e0", "change": "UPSERT", "mergedIntoId": null,
+                         "number": {"id": "00000000-0000-7000-8000-0000000000e0", "spexId": "00000000-0000-7000-8000-000000000001", "act": 1, "position": 1,
+                                    "title": "Nummer 1", "originalTitle": null, "originalArtist": null, "retired": false}},
+                        {"sequence": "4", "kind": "NUMBER", "id": "00000000-0000-7000-8000-0000000000e1", "change": "UPSERT", "mergedIntoId": null,
+                         "number": {"id": "00000000-0000-7000-8000-0000000000e1", "spexId": "00000000-0000-7000-8000-000000000001", "act": 1, "position": 2,
+                                    "title": "Nummer 2", "originalTitle": null, "originalArtist": null, "retired": false}},
+                        {"sequence": "5", "kind": "NUMBER", "id": "00000000-0000-7000-8000-0000000000e2", "change": "UPSERT", "mergedIntoId": null,
+                         "number": {"id": "00000000-0000-7000-8000-0000000000e2", "spexId": "00000000-0000-7000-8000-000000000001", "act": 1, "position": 3,
+                                    "title": "Nummer 3", "originalTitle": null, "originalArtist": null, "retired": false}},
+                        {"sequence": "6", "kind": "NUMBER", "id": "00000000-0000-7000-8000-0000000000e3", "change": "UPSERT", "mergedIntoId": null,
+                         "number": {"id": "00000000-0000-7000-8000-0000000000e3", "spexId": "00000000-0000-7000-8000-000000000001", "act": 1, "position": 4,
+                                    "title": "Nummer 4", "originalTitle": null, "originalArtist": null, "retired": false}},
+                        {"sequence": "7", "kind": "NUMBER", "id": "00000000-0000-7000-8000-0000000000e4", "change": "UPSERT", "mergedIntoId": null,
+                         "number": {"id": "00000000-0000-7000-8000-0000000000e4", "spexId": "00000000-0000-7000-8000-000000000001", "act": 1, "position": 5,
+                                    "title": "Nummer 5", "originalTitle": null, "originalArtist": null, "retired": false}},
+                        {"sequence": "8", "kind": "NUMBER", "id": "00000000-0000-7000-8000-0000000000e5", "change": "UPSERT", "mergedIntoId": null,
+                         "number": {"id": "00000000-0000-7000-8000-0000000000e5", "spexId": "00000000-0000-7000-8000-000000000001", "act": 1, "position": 6,
+                                    "title": "Nummer 6", "originalTitle": null, "originalArtist": null, "retired": false}}
+                              ]}}}""")));
     }
 
     @Test

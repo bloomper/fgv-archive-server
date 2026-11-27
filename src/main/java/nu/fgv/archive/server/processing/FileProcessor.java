@@ -130,23 +130,23 @@ public class FileProcessor {
 
             transactionTemplate.executeWithoutResult(_ -> repository.findById(work.fileId())
                     .filter(file -> unchanged(file, work)).ifPresent(file -> {
-                pageRepository.deleteByFile(file);
-                for (int i = 0; i < result.texts().size(); i++) {
-                    if (!result.texts().get(i).isBlank()) {
-                        final FilePage page = new FilePage();
+                        pageRepository.deleteByFile(file);
+                        for (int i = 0; i < result.texts().size(); i++) {
+                            if (!result.texts().get(i).isBlank()) {
+                                final FilePage page = new FilePage();
 
-                        page.setFile(file);
-                        page.setPage(result.paged() ? i + 1 : 0);
-                        page.setText(result.texts().get(i));
-                        pageRepository.save(page);
-                    }
-                }
-                file.setPages(result.pages());
-                file.setHasText(result.texts().stream().anyMatch(text -> !text.isBlank()));
-                file.setHasPreview(result.preview());
-                file.setProcessingStatus(ProcessingStatus.DONE);
-                file.setProcessingError(null);
-            }));
+                                page.setFile(file);
+                                page.setPage(result.paged() ? i + 1 : 0);
+                                page.setText(result.texts().get(i));
+                                pageRepository.save(page);
+                            }
+                        }
+                        file.setPages(result.pages());
+                        file.setHasText(result.texts().stream().anyMatch(text -> !text.isBlank()));
+                        file.setHasPreview(result.preview());
+                        file.setProcessingStatus(ProcessingStatus.DONE);
+                        file.setProcessingError(null);
+                    }));
         } catch (@SuppressWarnings("java:S1181") final Throwable e) {
             // Errors too (OutOfMemoryError, StackOverflowError from a hostile file): the file is given up at once
             final boolean fatal = e instanceof Error;
@@ -155,11 +155,11 @@ public class FileProcessor {
             log.warn("Could not process file {} (attempt {}): {}", work.fileId(), work.attempt(), message);
             transactionTemplate.executeWithoutResult(_ -> repository.findById(work.fileId())
                     .filter(file -> unchanged(file, work)).ifPresent(file -> {
-                file.setProcessingError(message.length() > MAX_ERROR ? message.substring(0, MAX_ERROR) : message);
-                if (fatal || work.attempt() >= MAX_ATTEMPTS) {
-                    file.setProcessingStatus(ProcessingStatus.FAILED);
-                }
-            }));
+                        file.setProcessingError(message.length() > MAX_ERROR ? message.substring(0, MAX_ERROR) : message);
+                        if (fatal || work.attempt() >= MAX_ATTEMPTS) {
+                            file.setProcessingStatus(ProcessingStatus.FAILED);
+                        }
+                    }));
         }
     }
 

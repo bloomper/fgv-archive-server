@@ -27,7 +27,7 @@ import java.util.UUID;
  * the instruments and is written in any of the transpositions; an empty list does not narrow, and an empty filter
  * matches every file.
  *
- * @param instrumentIds the instruments, any of which a file carries
+ * @param instrumentIds  the instruments, any of which a file carries
  * @param transpositions the pitches, any of which a file is written in
  * @author Anders Jacobsson
  * @since 1.0

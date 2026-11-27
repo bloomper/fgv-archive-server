@@ -17,7 +17,9 @@
 package nu.fgv.archive.server.document;
 
 import graphql.schema.DataFetchingEnvironment;
+
 import java.util.Map;
+
 import nu.fgv.archive.server.util.Locales;
 import nu.fgv.archive.server.material.MaterialDtos;
 import org.jspecify.annotations.Nullable;

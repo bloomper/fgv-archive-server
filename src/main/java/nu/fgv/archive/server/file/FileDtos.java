@@ -46,8 +46,8 @@ public final class FileDtos {
     /**
      * A file as the caller sees it.
      *
-     * @param canOpen       whether the caller may open and download it
-     * @param editor        whether the caller is an editor, who sees how often it was downloaded
+     * @param canOpen whether the caller may open and download it
+     * @param editor  whether the caller is an editor, who sees how often it was downloaded
      */
     public static FileDto toDto(final ArchiveFile file, final boolean canOpen, final boolean editor) {
         return new FileDto(file.getUuid(), file.getVersion().getUuid(), file.getTitle(), file.getComment(), file.getOriginalName(),
@@ -64,8 +64,10 @@ public final class FileDtos {
     public record FileRoleInput(@Nullable String nameSv, @Nullable String nameEn) {
     }
 
-    public record InstrumentDto(UUID id, String nameSv, String nameEn, InstrumentGroup group, List<String> abbreviations,
-                                Transposition defaultTransposition, int position, @Nullable UUID taskId, boolean retired) {
+    public record InstrumentDto(UUID id, String nameSv, String nameEn, InstrumentGroup group,
+                                List<String> abbreviations,
+                                Transposition defaultTransposition, int position, @Nullable UUID taskId,
+                                boolean retired) {
 
         public InstrumentDto(final UUID id, final String nameSv, final String nameEn, final InstrumentGroup group,
                              final List<String> abbreviations, final Transposition defaultTransposition, final int position) {
@@ -77,7 +79,8 @@ public final class FileDtos {
                                   @Nullable List<String> abbreviations, @Nullable Transposition defaultTransposition) {
     }
 
-    public record FileDto(UUID id, UUID versionId, String title, @Nullable String comment, String name, String extension,
+    public record FileDto(UUID id, UUID versionId, String title, @Nullable String comment, String name,
+                          String extension,
                           String contentType, double size, String checksum, @Nullable Integer pages, int position,
                           FileRoleDto role, List<InstrumentDto> instruments, @Nullable String desk,
                           @Nullable Transposition transposition, ProcessingStatus processing,
@@ -93,7 +96,8 @@ public final class FileDtos {
                                @Nullable Transposition transposition) {
     }
 
-    public record FileInput(@Nullable String title, @Nullable String comment, UUID roleId, @Nullable List<UUID> instrumentIds,
+    public record FileInput(@Nullable String title, @Nullable String comment, UUID roleId,
+                            @Nullable List<UUID> instrumentIds,
                             @Nullable String desk, @Nullable Transposition transposition) {
     }
 

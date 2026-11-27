@@ -251,7 +251,8 @@ public class DocumentKindService {
     /**
      * book: whether documents of the kind are books with a song list; left out, unchanged (a new kind is none).
      */
-    public record DocumentKindInput(String nameSv, String nameEn, @Nullable List<String> aliases, @Nullable Boolean book) {
+    public record DocumentKindInput(String nameSv, String nameEn, @Nullable List<String> aliases,
+                                    @Nullable Boolean book) {
 
         public DocumentKindInput(final String nameSv, final String nameEn, final @Nullable List<String> aliases) {
             this(nameSv, nameEn, aliases, null);

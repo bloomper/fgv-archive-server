@@ -195,7 +195,8 @@ public class McpToolSupport {
     /**
      * A file by name, with its page count when it is a PDF.
      */
-    public record FileRef(UUID id, String title, String name, String contentType, @Nullable Integer pages, boolean hasText,
+    public record FileRef(UUID id, String title, String name, String contentType, @Nullable Integer pages,
+                          boolean hasText,
                           Instant createdAt) {
     }
 }

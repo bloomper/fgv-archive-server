@@ -507,7 +507,7 @@ public class FileService {
      * and the old stays.
      */
     static void swapAfterCommit(final Path staged, final Path target, final Path old, final Path preview,
-                                        final Path upload) {
+                                final Path upload) {
         final Runnable swap = () -> {
             try {
                 Files.move(staged, target, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);

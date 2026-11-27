@@ -102,11 +102,17 @@ public abstract class AbstractIntegrationTest {
      */
     protected static final String UNBOUND_MCP_CLIENT_ID = "fgv-archive-mcp-unbound";
     protected static final String MCP_PATH = "/api/mcp";
-    /** Cleopatra 2024, an original. */
+    /**
+     * Cleopatra 2024, an original.
+     */
     protected static final String SPEX_ID = "00000000-0000-7000-8000-000000000001";
-    /** Ali Baba 2020, another original. */
+    /**
+     * Ali Baba 2020, another original.
+     */
     protected static final String OTHER_SPEX_ID = "00000000-0000-7000-8000-000000000002";
-    /** Cleopatra 2026, a revival of Cleopatra 2024. */
+    /**
+     * Cleopatra 2026, a revival of Cleopatra 2024.
+     */
     protected static final String REVIVAL_ID = "00000000-0000-7000-8000-000000000003";
     protected static final String TRUMPET = "00000000-0000-7000-8000-00000000c00b";
     protected static final String TROMBONE = "00000000-0000-7000-8000-00000000c00d";

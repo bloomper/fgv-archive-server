@@ -109,7 +109,9 @@ public class SampleDataImporter {
     public static final String VALID_TOKEN = "exempel-giltig-delningslank-0000000000000001";
     public static final String EXPIRED_TOKEN = "exempel-utgangen-delningslank-00000000000001";
     public static final String REVOKED_TOKEN = "exempel-aterkallad-delningslank-000000000001";
-    /** A link made for instruments: a spex' trumpet and trombone parts in B♭ and C, including parts added later. */
+    /**
+     * A link made for instruments: a spex' trumpet and trombone parts in B♭ and C, including parts added later.
+     */
     public static final String INSTRUMENT_TOKEN = "exempel-instrument-delningslank-00000000001";
     // The sample users of fgv-infra-deploy's bin/seed-users.sh, by their fixed ids (see createUsers)
     static final String ADMIN = "admin@fgv.nu";
@@ -136,7 +138,9 @@ public class SampleDataImporter {
             new MusicKey(Tonic.F, Mode.MAJOR), new MusicKey(Tonic.D, Mode.MINOR), new MusicKey(Tonic.B_FLAT, Mode.MAJOR),
             new MusicKey(Tonic.F_SHARP, Mode.MINOR));
     private static final List<String> LYRICISTS = List.of("Åsa Åkesson", "Bertil Berg", "Cecilia Ceder", "David Dahl");
-    /** The band: an instrument's default id and how many play it. */
+    /**
+     * The band: an instrument's default id and how many play it.
+     */
     private static final List<Object[]> BAND = List.of(
             new Object[]{TRUMPET, 2}, new Object[]{ALTO_SAX, 1}, new Object[]{TENOR_SAX, 1}, new Object[]{HORN, 1},
             new Object[]{TROMBONE, 1}, new Object[]{PIANO, 1}, new Object[]{BASS, 1}, new Object[]{DRUMS, 1}, new Object[]{VOCALS, 1});

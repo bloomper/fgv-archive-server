@@ -485,11 +485,13 @@ public class ShareLinkService {
      * A new link: versions and files, and/or a spex with instruments (and optionally transpositions) whose parts it opens.
      */
     public record ShareLinkInput(@Nullable String name, @Nullable List<UUID> versionIds, @Nullable List<UUID> fileIds,
-                                 @Nullable UUID spexId, @Nullable List<UUID> instrumentIds, @Nullable List<Pitch> transpositions,
+                                 @Nullable UUID spexId, @Nullable List<UUID> instrumentIds,
+                                 @Nullable List<Pitch> transpositions,
                                  @Nullable Integer months) {
     }
 
-    public record ShareLinkDto(UUID id, String name, String createdById, @Nullable String createdByName, Instant createdAt,
+    public record ShareLinkDto(UUID id, String name, String createdById, @Nullable String createdByName,
+                               Instant createdAt,
                                Instant expiresAt, @Nullable Instant revokedAt, @Nullable String revokedByName,
                                ShareLinkStatus status, List<UUID> versionIds, List<UUID> fileIds, @Nullable UUID spexId,
                                List<UUID> instrumentIds, List<Pitch> transpositions) {
@@ -507,7 +509,8 @@ public class ShareLinkService {
      * valid.
      */
     public record SharedViewDto(String name, ShareLinkStatus status, @Nullable String createdByName, Instant expiresAt,
-                                @Nullable SharedSpexDto spex, List<FileDtos.InstrumentDto> instruments, List<Pitch> transpositions,
+                                @Nullable SharedSpexDto spex, List<FileDtos.InstrumentDto> instruments,
+                                List<Pitch> transpositions,
                                 List<SharedVersionDto> versions) {
     }
 
@@ -515,11 +518,13 @@ public class ShareLinkService {
                                    @Nullable SharedSpexDto usedIn, @Nullable Integer numberPosition,
                                    @Nullable String originalSong,
                                    @Nullable String authors, @Nullable String arranger, @Nullable MusicKey key,
-                                   List<MusicKey> modulations, @Nullable String tempo, @Nullable String duration, @Nullable String date,
+                                   List<MusicKey> modulations, @Nullable String tempo, @Nullable String duration,
+                                   @Nullable String date,
                                    @Nullable String notes, List<InstrumentationDto> instrumentation,
                                    List<FileDto> files) {
     }
 
-    public record SharedSpexDto(UUID id, @Nullable String title, @Nullable Integer year, @Nullable String categoryName) {
+    public record SharedSpexDto(UUID id, @Nullable String title, @Nullable Integer year,
+                                @Nullable String categoryName) {
     }
 }

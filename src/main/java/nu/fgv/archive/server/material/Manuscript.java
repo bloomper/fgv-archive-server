@@ -59,11 +59,15 @@ public class Manuscript extends AbstractAuditable {
     @Column(name = "uuid", nullable = false, updatable = false, length = 36)
     private UUID uuid = Uuids.v7();
 
-    /** The original spex, or none for a document of FGV's own (a songbook, a jubilee). */
+    /**
+     * The original spex, or none for a document of FGV's own (a songbook, a jubilee).
+     */
     @Column(name = "spex_id", length = 36)
     private @Nullable UUID spexId;
 
-    /** A document kind kept by admins (spec 4.1): a manuscript, a programme, a synopsis … */
+    /**
+     * A document kind kept by admins (spec 4.1): a manuscript, a programme, a synopsis …
+     */
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "kind_id", nullable = false)
     private DocumentKind kind;
@@ -71,15 +75,21 @@ public class Manuscript extends AbstractAuditable {
     @Column(name = "title", nullable = false)
     private String title;
 
-    /** A book's number in its series, e.g. 1 for Chalmersspex I (spec 4.7). */
+    /**
+     * A book's number in its series, e.g. 1 for Chalmersspex I (spec 4.7).
+     */
     @Column(name = "volume")
     private @Nullable Integer volume;
 
-    /** When a book was published: a year, or a date as precise as known. */
+    /**
+     * When a book was published: a year, or a date as precise as known.
+     */
     @Column(name = "published_year")
     private @Nullable String publishedYear;
 
-    /** A book's songs, in the book's order; only documents of a book kind have them. */
+    /**
+     * A book's songs, in the book's order; only documents of a book kind have them.
+     */
     @jakarta.persistence.OneToMany(mappedBy = "book", cascade = jakarta.persistence.CascadeType.ALL, orphanRemoval = true)
     @OrderBy("position")
     private List<BookSong> songs = new ArrayList<>();

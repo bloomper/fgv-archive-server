@@ -76,17 +76,17 @@ public class SpexipediaLinksGraphqlApi {
             throw new AccessDeniedException("LINKS required");
         }
         return manuscriptRepository.findByUuid(id).filter(manuscript -> manuscript.getTrashedAt() == null).flatMap(manuscript -> manuscript.getVersions().stream()
-                .filter(MaterialDtos::openToServices)
-                .max(java.util.Comparator.comparing(MaterialVersion::isRecommended)
-                        .thenComparing(version -> version.getPublishedAt() == null ? java.time.Instant.EPOCH : version.getPublishedAt()))
-                .map(version -> new DocumentEmbed(manuscript.getUuid(), manuscript.getTitle(),
-                        manuscript.getPublishedYear() != null ? manuscript.getPublishedYear()
-                                : version.getDate() == null ? null : String.valueOf(version.getDate().getYear()),
-                        manuscript.getSpexId(), manuscript.getKind().getNameSv(), manuscript.getKind().getNameEn(),
-                        version.getFiles().stream().sorted(java.util.Comparator.comparingInt(ArchiveFile::getPosition))
-                                .map(file -> new FilePreview(file.getUuid(), file.getTitle(), file.getPages(),
-                                        file.isHasPreview() ? signer.preview(file.getUuid()).orElse(null) : null))
-                                .toList())))
+                        .filter(MaterialDtos::openToServices)
+                        .max(java.util.Comparator.comparing(MaterialVersion::isRecommended)
+                                .thenComparing(version -> version.getPublishedAt() == null ? java.time.Instant.EPOCH : version.getPublishedAt()))
+                        .map(version -> new DocumentEmbed(manuscript.getUuid(), manuscript.getTitle(),
+                                manuscript.getPublishedYear() != null ? manuscript.getPublishedYear()
+                                        : version.getDate() == null ? null : String.valueOf(version.getDate().getYear()),
+                                manuscript.getSpexId(), manuscript.getKind().getNameSv(), manuscript.getKind().getNameEn(),
+                                version.getFiles().stream().sorted(java.util.Comparator.comparingInt(ArchiveFile::getPosition))
+                                        .map(file -> new FilePreview(file.getUuid(), file.getTitle(), file.getPages(),
+                                                file.isHasPreview() ? signer.preview(file.getUuid()).orElse(null) : null))
+                                        .toList())))
                 .orElse(null);
     }
 

@@ -104,7 +104,8 @@ public final class MaterialDtos {
      */
     public record ManuscriptDto(UUID id, @Nullable UUID spexId, String title, @Nullable String authors,
                                 @Nullable String description, boolean trashed, Instant createdAt, long kindKey,
-                                boolean book, @Nullable Integer volume, @Nullable String publishedYear, List<BookSongDto> songs) {
+                                boolean book, @Nullable Integer volume, @Nullable String publishedYear,
+                                List<BookSongDto> songs) {
     }
 
     /**
@@ -124,7 +125,8 @@ public final class MaterialDtos {
                              @Nullable UUID arrangementId, String label, @Nullable UUID usedInSpexId,
                              @Nullable String date, @Nullable String notes, @Nullable String arranger,
                              @Nullable MusicKey key, List<MusicKey> modulations, @Nullable String tempo,
-                             @Nullable String duration, List<InstrumentationDto> instrumentation, boolean recommended, boolean restricted,
+                             @Nullable String duration, List<InstrumentationDto> instrumentation, boolean recommended,
+                             boolean restricted,
                              boolean published, @Nullable Instant publishedAt, boolean trashed, boolean canOpen,
                              Instant createdAt, @Nullable Instant lastModifiedAt) {
     }

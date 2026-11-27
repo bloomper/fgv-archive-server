@@ -91,7 +91,9 @@ public class FileTypes {
     private static final Set<String> TEXT_TYPES = Set.of(DOCX, DOC, ODT, RTF, TEXT, TEX, MUSICXML, "application/xml");
     private static final Set<String> IMAGE_TYPES = Set.of(JPEG, PNG, TIFF);
     private static final Set<String> INLINE_TYPES = Set.of(PDF, JPEG, PNG, TIFF, "image/webp");
-    /** Binary formats a browser does not render, served with their own type. */
+    /**
+     * Binary formats a browser does not render, served with their own type.
+     */
     private static final Set<String> OPAQUE_TYPES = Set.of(DOCX, DOC, ODT, MIDI, "application/zip");
 
     private final Tika tika = new Tika();

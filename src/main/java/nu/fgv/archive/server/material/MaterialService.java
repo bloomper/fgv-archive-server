@@ -190,7 +190,9 @@ public class MaterialService {
                 .toList();
     }
 
-    /** How many documents outside the trash of each kind (by its key) the caller sees. */
+    /**
+     * How many documents outside the trash of each kind (by its key) the caller sees.
+     */
     @Transactional(readOnly = true)
     public Map<Long, Integer> documentCounts() {
         final Caller caller = user();
@@ -540,7 +542,7 @@ public class MaterialService {
         }
 
         final java.util.Set<UUID> numbers = numberRepository.findByUuidIn(songs.stream()
-                .map(MaterialDtos.BookSongInput::numberId).filter(Objects::nonNull).distinct().toList())
+                        .map(MaterialDtos.BookSongInput::numberId).filter(Objects::nonNull).distinct().toList())
                 .stream().map(SpexNumber::getUuid).collect(java.util.stream.Collectors.toSet());
 
         manuscript.getSongs().clear();
@@ -905,7 +907,9 @@ public class MaterialService {
         }
     }
 
-    /** An original spex: a document belongs to the original, not to a revival. */
+    /**
+     * An original spex: a document belongs to the original, not to a revival.
+     */
     private Spex original(final UUID spexId) {
         final Spex spex = spexService.require(spexId);
 
@@ -928,13 +932,17 @@ public class MaterialService {
                 .orElseThrow(() -> new BadRequestException("error.number.notFound", version.getArrangement().getNumberId()));
     }
 
-    /** For the audit log: the manuscript's title or the arrangement's number's. */
+    /**
+     * For the audit log: the manuscript's title or the arrangement's number's.
+     */
     private Object parentTitle(final MaterialVersion version) {
         return version.getManuscript() != null ? version.getManuscript().getTitle()
                 : numberTitle(Objects.requireNonNull(version.getArrangement()));
     }
 
-    /** For the audit log: the number's title, or that it is unknown. */
+    /**
+     * For the audit log: the number's title, or that it is unknown.
+     */
     private Object numberTitle(final Arrangement arrangement) {
         return numberRepository.findByUuid(arrangement.getNumberId()).<Object>map(SpexNumber::getTitle).orElse(StoredText.of("audit.unknownNumber"));
     }
@@ -949,7 +957,9 @@ public class MaterialService {
 
     // ------------------------------------------------------------------------------------------- the import API
 
-    /** The optimistic-lock version of a document, an arrangement or a version, or null when it is gone. */
+    /**
+     * The optimistic-lock version of a document, an arrangement or a version, or null when it is gone.
+     */
     @Transactional(readOnly = true)
     public @Nullable Long recordVersion(final UUID id) {
         return manuscriptRepository.findByUuid(id).map(Manuscript::getLockVersion)
@@ -1032,6 +1042,7 @@ public class MaterialService {
     public record MaterialCount(int manuscripts, int arrangements) {
     }
 
-    public record TrashDto(List<ManuscriptDto> manuscripts, List<ArrangementDto> arrangements, List<VersionDto> versions) {
+    public record TrashDto(List<ManuscriptDto> manuscripts, List<ArrangementDto> arrangements,
+                           List<VersionDto> versions) {
     }
 }

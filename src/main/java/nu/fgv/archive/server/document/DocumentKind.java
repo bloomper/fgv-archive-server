@@ -57,11 +57,15 @@ public class DocumentKind extends AbstractAuditable {
     @Column(name = "name_en", nullable = false)
     private String nameEn;
 
-    /** One per line. */
+    /**
+     * One per line.
+     */
     @Column(name = "aliases", nullable = false)
     private String aliases = "";
 
-    /** Whether its documents are books with a song list (spec 4.7): spex books, songbooks, anniversary books. */
+    /**
+     * Whether its documents are books with a song list (spec 4.7): spex books, songbooks, anniversary books.
+     */
     @Column(name = "book", nullable = false)
     private boolean book;
 

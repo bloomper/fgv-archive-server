@@ -391,7 +391,8 @@ public class SpexipediaSync {
                             WHERE category_id = :from""")
                     .param("into", into.toString()).param("from", from.toString()).update();
             case "NUMBER" -> numberService.mergeFromSpexipedia(from, into);
-            case "CHARACTER" -> jdbc.sql("DELETE FROM spex_character WHERE uuid = :from").param("from", from.toString()).update();
+            case "CHARACTER" ->
+                    jdbc.sql("DELETE FROM spex_character WHERE uuid = :from").param("from", from.toString()).update();
             case "TASK" -> {
                 instrumentService.mergeTasks(from, into);
                 jdbc.sql("DELETE FROM spexipedia_task WHERE id = :from").param("from", from.toString()).update();

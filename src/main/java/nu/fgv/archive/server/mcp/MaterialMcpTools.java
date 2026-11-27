@@ -247,7 +247,8 @@ public class MaterialMcpTools {
         });
     }
 
-    public record SpexSummary(UUID id, @Nullable String title, @Nullable Integer year, @Nullable String category, int manuscripts,
+    public record SpexSummary(UUID id, @Nullable String title, @Nullable Integer year, @Nullable String category,
+                              int manuscripts,
                               int arrangements, List<SpexRef> revivals) {
     }
 
@@ -266,8 +267,10 @@ public class MaterialMcpTools {
                                   @Nullable VersionRef recommendedVersion) {
     }
 
-    public record Material(UUID id, MaterialKind kind, @Nullable String title, @Nullable String authors, @Nullable String description,
-                           boolean trashed, @Nullable SpexRef spex, @Nullable NumberRef number, List<Version> versions) {
+    public record Material(UUID id, MaterialKind kind, @Nullable String title, @Nullable String authors,
+                           @Nullable String description,
+                           boolean trashed, @Nullable SpexRef spex, @Nullable NumberRef number,
+                           List<Version> versions) {
     }
 
     /**
@@ -276,10 +279,13 @@ public class MaterialMcpTools {
      *
      * @param usedInSpex the spex, e.g. a revival, the version was made for
      */
-    public record Version(UUID id, String label, @Nullable String date, @Nullable String notes, @Nullable String arranger,
-                          @Nullable MusicKey key, List<MusicKey> modulations, @Nullable String tempo, @Nullable String duration,
+    public record Version(UUID id, String label, @Nullable String date, @Nullable String notes,
+                          @Nullable String arranger,
+                          @Nullable MusicKey key, List<MusicKey> modulations, @Nullable String tempo,
+                          @Nullable String duration,
                           @Nullable SpexRef usedInSpex, boolean recommended, boolean restricted, boolean published,
-                          @Nullable Instant publishedAt, boolean canOpen, Instant createdAt, @Nullable Instant lastModifiedAt,
+                          @Nullable Instant publishedAt, boolean canOpen, Instant createdAt,
+                          @Nullable Instant lastModifiedAt,
                           List<FileInfo> files) {
     }
 
@@ -290,9 +296,11 @@ public class MaterialMcpTools {
      * @param role    e.g. Manus, Partitur or Stämma
      * @param canOpen whether you may read its text
      */
-    public record FileInfo(UUID id, String title, @Nullable String comment, String name, String extension, String contentType, long size,
+    public record FileInfo(UUID id, String title, @Nullable String comment, String name, String extension,
+                           String contentType, long size,
                            @Nullable Integer pages, String role, List<String> instruments, @Nullable String desk,
-                           @Nullable Transposition transposition, ProcessingStatus processing, boolean hasText, boolean canOpen,
+                           @Nullable Transposition transposition, ProcessingStatus processing, boolean hasText,
+                           boolean canOpen,
                            Instant createdAt) {
     }
 
@@ -300,7 +308,8 @@ public class MaterialMcpTools {
      * @param truncated whether the text was cut at the size limit
      * @param nextPage  the page to go on from, when there are more
      */
-    public record FileText(FileRef file, @Nullable VersionRef version, @Nullable MaterialRef material, List<PageTextDto> pages,
+    public record FileText(FileRef file, @Nullable VersionRef version, @Nullable MaterialRef material,
+                           List<PageTextDto> pages,
                            boolean truncated, @Nullable Integer nextPage) {
     }
 }

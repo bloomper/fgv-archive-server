@@ -71,11 +71,15 @@ public class AccessRequest {
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
 
-    /** When an editor marked it handled; null while it is open. */
+    /**
+     * When an editor marked it handled; null while it is open.
+     */
     @Column(name = "handled_at")
     private @Nullable Instant handledAt;
 
-    /** The subject of the editor who marked it handled. */
+    /**
+     * The subject of the editor who marked it handled.
+     */
     @Column(name = "handled_by", length = 64)
     private @Nullable String handledBy;
 

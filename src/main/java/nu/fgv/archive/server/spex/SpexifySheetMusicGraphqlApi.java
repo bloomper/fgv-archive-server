@@ -115,7 +115,8 @@ public class SpexifySheetMusicGraphqlApi {
     }
 
     public record SheetMusicFile(UUID id, String title, String name, String extension, String contentType, double size,
-                                 String checksum, @Nullable Integer pages, String roleSv, String roleEn, List<String> instrumentsSv,
+                                 String checksum, @Nullable Integer pages, String roleSv, String roleEn,
+                                 List<String> instrumentsSv,
                                  List<String> instrumentsEn, @Nullable String desk) {
     }
 }

@@ -104,7 +104,8 @@ public class SearchMcpTools {
     /**
      * A page of a file whose text matches: the page is null for a file without pages, e.g. a DOCX.
      */
-    public record TextHit(FileRef file, VersionRef version, @Nullable MaterialRef material, @Nullable Integer page, String excerpt) {
+    public record TextHit(FileRef file, VersionRef version, @Nullable MaterialRef material, @Nullable Integer page,
+                          String excerpt) {
     }
 
     /**

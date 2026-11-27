@@ -47,7 +47,7 @@ public interface ArchiveFileRepository extends JpaRepository<ArchiveFile, Long> 
      * The files waiting for the worker that have attempts left.
      */
     List<ArchiveFile> findByProcessingStatusAndProcessingAttemptsLessThanOrderByIdAsc(ProcessingStatus status, int attempts,
-                                                                                    Pageable pageable);
+                                                                                      Pageable pageable);
 
     /**
      * Marks failed the waiting files that have used up their attempts, e.g. because the worker died while reading them.

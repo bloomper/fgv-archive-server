@@ -78,7 +78,8 @@ public final class ImportRecords {
      * A file of a version: a file role and instruments by name (guessed from the file name when left out), the desk
      * or voice, and the pitch it is written in.
      */
-    public record ImportFile(FileRef file, @Nullable String role, @Nullable List<String> instruments, @Nullable String desk,
+    public record ImportFile(FileRef file, @Nullable String role, @Nullable List<String> instruments,
+                             @Nullable String desk,
                              FileDtos.@Nullable Transposition transposition, @Nullable String title) {
     }
 }
